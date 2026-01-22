@@ -1,0 +1,22 @@
+services:
+  moodle:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8081:80"
+    volumes:
+      - moodledata-staged:/var/www/moodledata
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:10.6
+    env_file:
+      - ../.env.staged
+    volumes:
+      - db-staged:/var/lib/mysql
+
+volumes:
+  moodledata-staged:
+  db-staged:
