@@ -1,0 +1,59 @@
+services:
+  moodleapp:
+    build:
+      context: .
+      dockerfile: Moodle
+    image: moodle-web:1.0
+    container_name: moodle-web
+    ports:
+      - 80:80
+    volumes:
+      - moodledata:/var/www/moodledata
+      - moodlefile:/var/www/html
+    depends_on:
+      - postgres
+    environment:
+      MOODLE_DATABASE_HOST: ${PGSQL_HOST}
+      MOODLE_DATABASE_USER: ${PGSQL_USER}
+      MOODLE_DATABASE_NAME: ${PGSQL_DATABASE}
+      MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      
+    secrets:
+      - db_password
+  
+  postgres:
+    image: postgres:17-alpine
+    container_name: moodle-pgdb
+    environment:
+       POSTGRES_ROOT_PASSWORD_FILE: ./run/secrets/db_root_password
+       POSTGRES_DB: ${PGSQL_DATABASE}
+       POSTGRES_USER: ${PGSQL_USER}
+       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+    secrets:
+      - db_root_password
+      - db_password
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "81:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${pgadminemail}
+      - PGADMIN_DEFAULT_PASSWORD=${pgadminpassword}
+    depends_on:
+      - postgres
+
+
+secrets:
+  db_root_password:
+    file: ./secrets/db_root_password.txt
+  db_password:
+    file: ./secrets/db_password.txt
+
+volumes:
+  pgdata:
+  moodledata:
+  moodlefile:
