@@ -57,6 +57,10 @@ else
   echo "[$(date)] Moodle config.php already exists — skipping generation."
 fi
 
+mkdir -p /var/www/html/public/theme
+chown -R www-data:www-data /var/www/html/public/theme
+chmod 755 /var/www/html/public/theme
+
 # Setup backup directory
 mkdir -p "$BACKUP_DIR"
 chmod 755 "$BACKUP_DIR"
@@ -164,7 +168,7 @@ chmod +x /usr/local/bin/moodle-backup.sh
 cat > /usr/local/bin/watch-moodle-updates.sh <<'WATCH_SCRIPT'
 #!/bin/bash
 BACKUP_DIR=/var/www/moodledata/backups
-WATCH_DIR=/var/www/html/theme
+WATCH_DIR=/var/www/html/public/theme
 STATE_FILE=/var/www/moodledata/.last_theme_state
 LOG_FILE=/var/log/moodle-updates.log
 
