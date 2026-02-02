@@ -3,3 +3,5 @@ secrets/
 *.log
 *.sql
 *moodledata/
+*src/
+
