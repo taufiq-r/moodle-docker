@@ -1,0 +1,41 @@
+FROM php:8.4-apache
+
+COPY docker/php/99-moodle.ini /usr/local/etc/php/conf.d/
+
+
+RUN apt-get update && apt-get install -y \
+    unzip \
+    gettext-base \
+    libzip-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libpq-dev \
+    libicu-dev \
+    libxml2-dev \
+    postgresql-client \
+    && docker-php-ext-configure zip \
+    && docker-php-ext-install \
+        zip gd pdo_pgsql pgsql intl soap exif \
+    && a2enmod rewrite \
+    && rm -rf /var/lib/apt/lists/*
+
+    
+COPY docker/apache/000-moodle.conf /etc/apache2/sites-available/000-moodle.conf
+
+RUN a2dissite 000-default.conf \
+ && a2ensite 000-moodle.conf \
+ && a2enmod rewrite
+
+WORKDIR /var/www/html
+COPY moodle/ .
+
+RUN mkdir -p /var/www/moodledata
+
+
+ # config generator
+COPY docker/moodle/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["apache2-foreground"]
