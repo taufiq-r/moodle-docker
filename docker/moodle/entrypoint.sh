@@ -209,6 +209,90 @@ WATCH_SCRIPT
 
 chmod +x /usr/local/bin/watch-moodle-updates.sh
 
+
+# Create version monitoring script
+cat > /usr/local/bin/check-moodle-version.sh <<'VERSION_SCRIPT'
+#!/bin/bash
+
+MOODLE_DIR=/var/www/html
+VERSION_FILE=$MOODLE_DIR/version.php
+STATE_FILE=/var/www/moodledata/.last_version
+LOG_FILE=/var/log/moodle-updates-version.log
+BACKUP_DIR=/var/www/moodledata/backups
+
+mkdir -p "$BACKUP_DIR"
+
+#extract version dari version.php
+
+if [ -f "$VERSION_FILE" ]; then
+    # Parse release version dari version.php
+    # Format: $release = '5.0 (Build: 20231218)';
+    CURRENT_VERSION=$(grep -oP "^\\\$release\s*=\s*['\"]?\K[^'\"]*" "$VERSION_FILE" 2>/dev/null | head -1)
+    
+    if [ -z "$CURRENT_VERSION" ]; then
+        # fallback: cari version number
+        CURRENT_VERSION=$(grep -oP "^\\\$version\s*=\s*\K\d+\.\d+" "$VERSION_FILE" 2>/dev/null | head -1)
+
+    fi
+
+    if [ -z "$CURRENT_VERSION" ]; then
+        echo "[$(date)] WARNING: Could not determine current Moodle version" >> "$LOG_FILE"
+        exit 1
+    fi
+    {
+        echo "[$(date)] Checking Moodle version...$CURRENT_VERSION"
+    } >> "$LOG_FILE"
+    
+    # BACA Last known version
+    
+    LAST_VERSION=""
+    if [ -f "$STATE_FILE" ]; then
+        LAST_VERSION=$(cat "$STATE_FILE")
+    fi
+
+    # jika versi berbeda, buat backup
+    if [ "$CURRENT_VERSION" != "$LAST_VERSION" ]; then
+        if [ -n "$LAST_VERSION" ]; then
+            echo "[$(date)] Moodle version changed : $LAST_VERSION -> $CURRENT_VERSION" >> "$LOG_FILE"
+            echo "[$(date)] Creating backup due to version change..." >> "$LOG_FILE"
+
+            BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            BACKUP_FILE="$BACKUP_DIR/backup_upgrade_${LAST_VERSION// /_}_to_${CURRENT_VERSION// /_}_$BACKUP_TIMESTAMP.sql"
+
+            export PGPASSWORD="$(cat /run/secrets/db_password 2>/dev/null)"
+
+            pg_dump -h "${MOODLE_DATABASE_HOST}" \
+                    -U "${MOODLE_DATABASE_USER}" \
+                    -d "${MOODLE_DATABASE_NAME}" \
+                    > "$BACKUP_FILE" 2>> "$BACKUP_DIR/backup_error.log" || true
+            
+            if [ $? -eq 0 ]; then
+                BACKUP_SIZE=$(stat -c%s "$BACKUP_FILE" 2>/dev/null || echo "0")
+                if [ "$BACKUP_SIZE" -gt 100 ]; then
+                    gzip "$BACKUP_FILE"
+                    echo "[$(date)] Pre-upgrade backup created: $(basename $BACKUP_FILE).gz (size: $BACKUP_SIZE bytes)" >> "$LOG_FILE"
+                else
+                    rm -f "$BACKUP_FILE"
+                    echo "[$(date)] WARNING: Pre-upgrade backup file too small, Skipped" >> "$LOG_FILE"
+                fi
+            else
+                echo "[$(date)] ERROR: Pre-upgrade backup failed" >> "$LOG_FILE"
+            fi
+        else
+            echo "[$(date)] Initial version detected: $CURRENT_VERSION" >> "$LOG_FILE"
+        fi
+
+        # Update state file dengan versi terkini
+        echo "$CURRENT_VERSION" > "$STATE_FILE"
+        echo "[$(date)] Updated version state to: $CURRENT_VERSION" >> "$LOG_FILE"
+    fi
+else
+    echo "[$(date)] WARNING: version.php not found at $VERSION_FILE" >> "$LOG_FILE"
+fi
+VERSION_SCRIPT
+
+chmod +x /usr/local/bin/check-moodle-version.sh
+
 # Install dan start cron
 echo "[$(date)] Setting up cron jobs..."
 apt-get update > /dev/null 2>&1 
@@ -232,8 +316,10 @@ echo "# Backup database setiap hari jam 2 pagi"; \
 echo "0 2 * * * /usr/local/bin/moodle-backup.sh"; \
 echo ""; \
 echo "# Monitor theme /plugin change every 5 minutes"; \
-echo "*/5 * * * * /usr/local/bin/watch-moodle-updates.sh >> /var/log/moodle-updates.log 2>&1") | crontab -u www-data -
-
+echo "*/5 * * * * /usr/local/bin/watch-moodle-updates.sh >> /var/log/moodle-updates.log 2>&1" | crontab -u www-data -
+echo "# Check moodle version every hour"; \
+echo ""; \
+echo "0 * * * * /usr/local/bin/check-moodle-version.sh >> /var/log/moodle-updates-version.log 2>&1") | crontab -u www-data -
 echo "[$(date)] Cron jobs installed."
 
 # Show cron jobs for verification
