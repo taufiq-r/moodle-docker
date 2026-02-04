@@ -2,6 +2,12 @@
 
 set -e
 
+
+# Detect Environment
+
+ENVIRONMENT=${ENVIRONMENT:-production}
+
+
 MOODLE_DIR=/var/www/html
 MOODLE_CONFIG=$MOODLE_DIR/config.php
 MOODLE_DATA=/var/www/moodledata
@@ -9,17 +15,68 @@ BACKUP_DIR=$MOODLE_DATA/backups
 LOG_FILE=/var/log/moodle-backup.log
 UPDATE_LOG=/var/log/moodle-updates.log
 
+
+# Use environment, specific config file
+
+if [ "$ENVIRONMENT" = "development" ]; then
+    MOODLE_CONFIG=$MOODLE_DIR/config.dev.php
+    DEBUG_LEVEL="32767"
+    DEBUGDISPLAY="true"
+else
+    MOODLE_CONFIG=$MOODLE_DIR/config.prod.php
+    DEBUG_LEVEL="0"
+    DEBUGDISPLAY="false"
+fi
+
+
 echo "=== Moodle Startup Script ==="
+
+echo "Config file: $MOODLE_CONFIG"
 
 mkdir -p /var/log
 touch "$LOG_FILE" "$UPDATE_LOG"
 chmod 666 "$LOG_FILE" "$UPDATE_LOG"
 echo "[$(date)] Log files initialized"
 
-# Generate config.php jika belum ada
+# Check if config need regeneration
+check_config() {
+    local config_file=$1
 
-if [ ! -f "$MOODLE_CONFIG" ]; then
-  echo "Generating Moodle config.php..."
+    if [ ! -f "$config_file" ]; then
+        return 0 # true / need update
+    fi
+# Check critical missmatches
+# Extract actual values from config file
+    local config_host=$(grep -oP "CFG->dbhost\s*=\s*['\"]?\K[^'\";\s]*" "$config_file" 2>/dev/null | head -1)
+    local config_user=$(grep -oP "CFG->dbuser\s*=\s*['\"]?\K[^'\";\s]*" "$config_file" 2>/dev/null | head -1)
+    local config_name=$(grep -oP "CFG->dbname\s*=\s*['\"]?\K[^'\";\s]*" "$config_file" 2>/dev/null | head -1)
+    
+    # Debug info
+    echo "[$(date)] Existing config - HOST: $config_host, USER: $config_user, DB: $config_name"
+    echo "[$(date)] Current env   - HOST: ${MOODLE_DATABASE_HOST}, USER: ${MOODLE_DATABASE_USER}, DB: ${MOODLE_DATABASE_NAME}"
+    
+    # Compare with current environment variables
+    if [ "$config_host" != "${MOODLE_DATABASE_HOST}" ]; then
+        echo "[$(date)] ⚠ Config mismatch: DB HOST ($config_host != ${MOODLE_DATABASE_HOST})"
+        return 0
+    fi
+    
+    if [ "$config_user" != "${MOODLE_DATABASE_USER}" ]; then
+        echo "[$(date)] ⚠ Config mismatch: DB USER ($config_user != ${MOODLE_DATABASE_USER})"
+        return 0
+    fi
+    
+    if [ "$config_name" != "${MOODLE_DATABASE_NAME}" ]; then
+        echo "[$(date)] ⚠ Config mismatch: DB NAME ($config_name != ${MOODLE_DATABASE_NAME})"
+        return 0
+    fi
+    
+    echo "[$(date)] ✓ Config validation: OK (no changes detected)"
+    return 1  # false - no update needed
+}
+# Generate or update config.php 
+if check_config  "$MOODLE_CONFIG"; then
+  echo "[$(date)] Generating / updating Moodle config.php ($ENVIRONMENT)...."
   DB_PASS="$(cat "$MOODLE_DATABASE_PASSWORD_FILE")"
 
   cat > "$MOODLE_CONFIG" <<EOF
@@ -42,21 +99,49 @@ global \$CFG;
 \$CFG->sslproxy  = false;
 \$CFG->directorypermissions = 0777;
 
-// Load default settings jika ada
-if (file_exists(__DIR__ . '/../../app/custom/config-defaults.php')) {
-    include(__DIR__ . '/../../app/custom/config-defaults.php');
+// Environment speciffic debug settings
+
+if ('$ENVIRONMENT' === 'development'){
+    \$CFG->debug = 32767; // DEBUG_DEVELOPER
+    \$CFG->debugdisplay = true;
+    \$CFG->perfdebug = 32767; // DEBUG_DEVELOPER
+    \$CFG->debugstringkeys = true;
+} else{
+    \$CFG->debug = 0; // DEBUG_MINIMAL
+    \$CFG->debugdisplay = false;
+    \$CFG->perfdebug = 0; // DEBUG_NONE
+    \$CFG->debugstringkeys = false;
 }
 
+// Load DEfault settings jika ada
+
+if (file_exists(__DIR__. '../../app/custom/config_defaults.php')) { 
+    include(__DIR__ .'/../../app/custom/config-defaults.php');
+    }
 
 require_once(__DIR__ . '/lib/setup.php');
-
-
 EOF
-  chmod 640 "$MOODLE_CONFIG"
-  chown www-data:www-data "$MOODLE_CONFIG"
-  echo "[$(date)] Moodle config.php created."
+
+    chmod 640 "$MOODLE_CONFIG"
+    chown www-data:www-data "$MOODLE_CONFIG"
+    echo "[$(date)] Moodle config.php ($ENVIRONMENT) created/updated: $MOODLE_CONFIG"
+    # CReate sysmlink dari config.php ke config environment specifi
+    rm -f "$MOODLE_DIR/config.php"
+    ln -s "$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/config.php"
+    echo "[$(date)] Symlink created: config.php -> $(basename $MOODLE_CONFIG)"
+
 else
-  echo "[$(date)] Moodle config.php already exists — skipping generation."
+    echo "[$(date)] Moodle config.php ($ENVIRONMENT) already correct — skipping generation."
+
+    # Ensure symlink is correct
+    CURRENT_LINK=$(readlink "$MOODLE_DIR/config.php" 2>/dev/null || echo "")
+    if [  "$CURRENT_LINK" != "$(basename $MOODLE_CONFIG)" ]; then
+        echo "[$(date)] Updating symlink to point correct config"
+        rm -f "$MOODLE_DIR/config.php"
+        ln -s "$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/config.php"
+        echo "[$(date)] Symlink updated: config.php -> $(basename $MOODLE_CONFIG)"
+    fi
+
 fi
 
 mkdir -p /var/www/html/public/theme
@@ -121,7 +206,7 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 mkdir -p "$BACKUP_DIR"
 
-#timestamp dan better logging
+#timestamp
 {
     echo "-------------------------------------------"
     echo "[$(date)] Starting database backup..."
@@ -301,6 +386,22 @@ apt-get install -y --no-install-recommends cron > /dev/null 2>&1
 #clear existing cron jobs untuk www-data
 crontab -u www-data -r 2>/dev/null || true
 
+# Setup cron job dengan frequency berbeda per environment
+
+echo "[$(date)] Setting up cron job for $ENVIRONMENT environment..."
+    if  [ "$ENVIRONMENT" = "development" ]; then
+        # Development: backup setiap 6 ham, tema check setiap 5 menit
+        BACKUP_CRON="0 */6 * * * /usr/local/bin/moodle-backup.sh"
+        echo "[$(date)] Using development cron shecudle (backup every 6 hours)"
+
+    else
+        # Production: backup setiap hari jam 2 pagi, tema setiap 5 menit
+        BACKUP_CRON="0 2 * * * /usr/local/bin/moodle-backup.sh"
+        echo "[$(date)] Using production cron shecudle (backup daily at 2 AM)"
+
+    fi
+
+
 #setup cron job
 
 (crontab -u www-data -l 2>/dev/null || true; \
@@ -312,15 +413,17 @@ echo "MOODLE_DATABASE_USER=${MOODLE_DATABASE_USER}"; \
 echo "MOODLE_DATABASE_NAME=${MOODLE_DATABASE_NAME}"; \
 echo "PGPASSWORD=${DB_PASS}"; \
 echo ""; \
-echo "# Backup database setiap hari jam 2 pagi"; \
-echo "0 2 * * * /usr/local/bin/moodle-backup.sh"; \
+echo "# Backup database"; \
+echo "$BACKUP_CRON"; \
 echo ""; \
-echo "# Monitor theme /plugin change every 5 minutes"; \
-echo "*/5 * * * * /usr/local/bin/watch-moodle-updates.sh >> /var/log/moodle-updates.log 2>&1" | crontab -u www-data -
-echo "# Check moodle version every hour"; \
+echo "# Monitor theme/plugin change every 5 minute"; \
+echo "*/5 * * * * /usr/local/bin/watch-moodle-updates.sh >> /var/log/moodle-updates.log 2>&1"; \
 echo ""; \
+echo "# Check Moodle version every hour"; \
 echo "0 * * * * /usr/local/bin/check-moodle-version.sh >> /var/log/moodle-updates-version.log 2>&1") | crontab -u www-data -
-echo "[$(date)] Cron jobs installed."
+
+echo "[$(date)] Cron jobs installed for $ENVIRONMENT environment"
+
 
 # Show cron jobs for verification
 crontab -u www-data -l 2>/dev/null || echo "No cron jobs"
