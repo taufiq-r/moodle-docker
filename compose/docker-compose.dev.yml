@@ -1,0 +1,70 @@
+services:
+  moodleapp:
+    build:
+      context: ..
+      dockerfile: docker/Moodle
+      args:
+        ENVIRONMENT: development
+    image: moodle-web-dev
+    container_name: moodle-web-dev
+    ports:
+      - 8080:80
+    volumes:
+      - moodledata-dev:/var/www/moodledata
+      - ../moodle:/var/www/html
+      - ./custom:/app/custom
+    depends_on:
+      - postgres
+    
+    environment:
+      ENVIRONMENT: development
+      MOODLE_DATABASE_HOST: ${PGSQL_HOST}
+      MOODLE_DATABASE_USER: ${PGSQL_USER}
+      MOODLE_DATABASE_NAME: ${PGSQL_DATABASE}
+      MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      MOODLE_WWWROOT: ${MOODLE_WWWROOT}
+      DEBUG: 'true'
+    secrets:
+      - db_password
+    networks:
+      - moodle-dev-network
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: moodle-pgdb-dev
+    environment:
+      POSTGRES_DB: ${PGSQL_DATABASE}
+      POSTGRES_USER: ${PGSQL_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    networks:
+      - moodle-dev-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin-dev
+    ports:
+      - "81:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - moodle-dev-network
+
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+
+volumes:
+  pgdata-dev:
+  moodledata-dev:
+
+networks:
+  moodle-dev-network:
+    driver: bridge 
+    
