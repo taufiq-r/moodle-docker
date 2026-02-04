@@ -2,6 +2,8 @@
 secrets/
 *.log
 *.sql
-*moodledata/
-*src/
+.env.*
 
+moodledata/
+src/
+moodle/
