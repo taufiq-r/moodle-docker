@@ -1,4 +1,9 @@
+ARG ENVIRONMENT=production
+
+
 FROM php:8.4-apache
+
+ARG ENVIRONMENT
 
 COPY docker/php/99-moodle.ini /usr/local/etc/php/conf.d/
 
@@ -31,8 +36,26 @@ COPY moodle/ .
 
 RUN mkdir -p /var/www/moodledata
 
+# Development-only dependencies
+RUN if [ "$ENVIRONMENT" = "development" ]; then \
+    apt-get update && apt-get install -y \
+    git \
+    curl \
+    wget \
+    vim \
+    && pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && rm -rf /var/lib/apt/lists/*; \
+    fi
 
- # config generator
+# Production optimizations
+
+RUN if [ "$ENVIRONMENT" = "production" ]; then \
+    echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini; \
+    fi
+
+
+#Config generator
 COPY docker/moodle/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
