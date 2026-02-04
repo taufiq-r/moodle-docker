@@ -57,6 +57,7 @@ services:
       - db_password
     networks:
       - moodle-dev-network
+<<<<<<< HEAD
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pidof php-fpm > /dev/null || exit 1"]
@@ -64,11 +65,16 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+=======
+>>>>>>> 25a660e (add docker compose development)
 
   postgres:
     image: postgres:17-alpine
     container_name: moodle-pgdb-dev
+<<<<<<< HEAD
     env_file: .env.dev
+=======
+>>>>>>> 25a660e (add docker compose development)
     environment:
       POSTGRES_DB: ${PGSQL_DATABASE}
       POSTGRES_USER: ${PGSQL_USER}
@@ -77,6 +83,7 @@ services:
       - pgdata-dev:/var/lib/postgresql/data
     secrets:
       - db_password
+<<<<<<< HEAD
       #- db_root_password
     networks:
       - moodle-dev-network
@@ -86,11 +93,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+=======
+    networks:
+      - moodle-dev-network
+>>>>>>> 25a660e (add docker compose development)
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin-dev
+<<<<<<< HEAD
     env_file: .env.dev
+=======
+>>>>>>> 25a660e (add docker compose development)
     ports:
       - "81:80"
     environment:
@@ -100,19 +114,27 @@ services:
       - postgres
     networks:
       - moodle-dev-network
+<<<<<<< HEAD
     volumes:
       - pgadmin-data:/var/lib/pgadmin
     restart: unless-stopped
+=======
+>>>>>>> 25a660e (add docker compose development)
 
 secrets:
   db_password:
     file: ../secrets/db_password.txt
 
 volumes:
+<<<<<<< HEAD
   pgdata-dev: # PostgreSQL data
   moodledata-dev: # Moodle data folder
   moodle-data: #Moodle source code
   pgadmin-data: # PgAdmin data
+=======
+  pgdata-dev:
+  moodledata-dev:
+>>>>>>> 25a660e (add docker compose development)
 
 networks:
   moodle-dev-network:
