@@ -1,0 +1,106 @@
+services:
+  moodleapp:
+    build:
+      context: ..
+      dockerfile: docker/Moodle
+      args:
+        ENVIRONMENT: production
+    image: moodle-web:prod
+    container_name: moodle-web-prod
+    restart: always
+    ports:
+      - 8081:80
+    volumes:
+      - moodledata-prod:/var/www/moodledata
+      - ../moodle:/var/www/html
+      - ./custom:/app/custom 
+    depends_on:
+      - postgres
+    environment:
+      ENVIRONMENT: production
+      MOODLE_DATABASE_HOST: ${PGSQL_HOST}
+      MOODLE_DATABASE_USER: ${PGSQL_USER}
+      MOODLE_DATABASE_NAME: ${PGSQL_DATABASE}
+      MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      MOODLE_WWWROOT: ${MOODLE_WWWROOT}
+      
+    secrets:
+      - db_password
+
+    networks:
+      - moodle-prod-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 2G
+    #     reservations:
+    #       cpus: '1'
+    #       memory: 1G
+  
+  postgres:
+    image: postgres:17-alpine
+    container_name: moodle-pgdb-prod
+    restart: always
+    environment:
+       POSTGRES_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+       POSTGRES_DB: ${PGSQL_DATABASE}
+       POSTGRES_USER: ${PGSQL_USER}
+       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - pgdata-prod:/var/lib/postgresql/data
+
+    secrets:
+      - db_root_password
+      - db_password
+
+    networks:
+      - moodle-prod-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGSQL_USER} -d ${PGSQL_DATABASE} -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      #start_period: 40s
+
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin-prod
+    restart: always
+    ports:
+      - "82:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      SCRIPT_NAME: /pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - moodle-prod-network
+    volumes:
+      - pgadmin-prod:/var/lib/pgadmin
+
+
+secrets:
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  db_password:
+    file: ../secrets/db_password.txt
+
+volumes:
+  pgdata-prod:
+  moodledata-prod:
+  pgadmin-prod:
+
+networks:
+  moodle-prod-network:
+    driver: bridge
