@@ -19,24 +19,41 @@ UPDATE_LOG=/var/log/moodle-updates.log
 # Use environment, specific config file
 
 if [ "$ENVIRONMENT" = "development" ]; then
-    MOODLE_CONFIG=$MOODLE_DIR/config.dev.php
+    MOODLE_CONFIG=$MOODLE_DIR/public/config.dev.php
     DEBUG_LEVEL="32767"
     DEBUGDISPLAY="true"
 else
-    MOODLE_CONFIG=$MOODLE_DIR/config.prod.php
+    MOODLE_CONFIG=$MOODLE_DIR/public/config.prod.php
     DEBUG_LEVEL="0"
     DEBUGDISPLAY="false"
 fi
 
 
 echo "=== Moodle Startup Script ==="
-
+echo "Environment: $ENVIRONMENT"
 echo "Config file: $MOODLE_CONFIG"
 
 mkdir -p /var/log
 touch "$LOG_FILE" "$UPDATE_LOG"
 chmod 666 "$LOG_FILE" "$UPDATE_LOG"
 echo "[$(date)] Log files initialized"
+
+# Ensure public directory exist
+if [ ! -d "$MOODLE_DIR/public" ]; then
+    echo "[$(date)] ERROR: Moodle source not found at $MOODLE_DIR/public"
+    echo "[$(date)] Please ensure moodle is properly mounted or copied to the container"
+
+    # if using named volume & not exist, try copy from image
+
+    if [ -d "/opt/moodle-source" ]; then
+        echo "[$(date)] Copying Moodle source from /opt/moodle-source..."
+        cp -r /opt/moodle-source/* "$MOODLE_DIR/"
+        echo "[$(date)] Moodle source copied succesfully"
+    else
+        echo "[$(date)] FATAL: No Moodle source available. Exiting."
+        exit 1
+    fi
+fi
 
 # Check if config need regeneration
 check_config() {
@@ -127,19 +144,20 @@ EOF
     echo "[$(date)] Moodle config.php ($ENVIRONMENT) created/updated: $MOODLE_CONFIG"
     # CReate sysmlink dari config.php ke config environment specifi
     rm -f "$MOODLE_DIR/config.php"
-    ln -s "$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/config.php"
-    echo "[$(date)] Symlink created: config.php -> $(basename $MOODLE_CONFIG)"
+    ln -s "public/$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/config.php"  
+    echo "[$(date)] Symlink created: config.php -> public/$(basename $MOODLE_CONFIG)"
 
 else
     echo "[$(date)] Moodle config.php ($ENVIRONMENT) already correct — skipping generation."
 
     # Ensure symlink is correct
+    EXPECTED_LINK="public/$(basename $MOODLE_CONFIG)"
     CURRENT_LINK=$(readlink "$MOODLE_DIR/config.php" 2>/dev/null || echo "")
-    if [  "$CURRENT_LINK" != "$(basename $MOODLE_CONFIG)" ]; then
+    if [  "$CURRENT_LINK" != "$EXPECTED_LINK" ]; then
         echo "[$(date)] Updating symlink to point correct config"
         rm -f "$MOODLE_DIR/config.php"
-        ln -s "$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/config.php"
-        echo "[$(date)] Symlink updated: config.php -> $(basename $MOODLE_CONFIG)"
+        ln -s "$EXPECTED_LINK" "$MOODLE_DIR/config.php"
+        echo "[$(date)] Symlink updated: config.php -> -> $EXPECTED_LINK"
     fi
 
 fi
@@ -380,8 +398,11 @@ chmod +x /usr/local/bin/check-moodle-version.sh
 
 # Install dan start cron
 echo "[$(date)] Setting up cron jobs..."
-apt-get update > /dev/null 2>&1 
-apt-get install -y --no-install-recommends cron > /dev/null 2>&1
+if ! command -v crond &> /dev/null; then
+    apk add --no-cache dcron libcap >/dev/null 2&>1
+fi
+# apt-get update > /dev/null 2>&1 
+# apt-get install -y --no-install-recommends cron > /dev/null 2>&1
 
 #clear existing cron jobs untuk www-data
 crontab -u www-data -r 2>/dev/null || true
@@ -428,14 +449,19 @@ echo "[$(date)] Cron jobs installed for $ENVIRONMENT environment"
 # Show cron jobs for verification
 crontab -u www-data -l 2>/dev/null || echo "No cron jobs"
 
-# start cronjob service
+# start cronjob service (apache)
 
-service cron start 2>&1 || echo "[$(date)] WARNING: Cron start had issues"
+#service cron start 2>&1 || echo "[$(date)] WARNING: Cron start had issues"
+#echo "[$(date)] Cron service started"
+
+# start cron service (alpine)
+crond -b 2>&1 || echo "[$(date)] WARNING: Cron start had issues"
 echo "[$(date)] Cron service started"
+
 
 # Verify cron service is running
 sleep 2
-if pgrep cron  > /dev/null; then
+if pgrep crond  > /dev/null; then
     echo "[$(date)] Cron service is running"
 else
     echo "[$(date)] WARNING: Cron service may not be running properly"
@@ -457,5 +483,12 @@ chmod 666 "$UPDATE_LOG"
 echo "[$(date)] Moodle startup completed, starting Apache ..."
 echo ""
 
+if [ "$SERVICE_TYPE" = "php-fpm" ]; then
+    echo "[$(date)] Starting PHP-FPM..."
+    exec php-fpm
+else
+    echo "[$(date)] Starting Apache..."
+    exec apache2-foreground
+fi
 
-exec apache2-foreground
+#exec apache2-foreground
