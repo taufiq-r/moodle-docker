@@ -15,8 +15,28 @@ BACKUP_DIR=$MOODLE_DATA/backups
 LOG_FILE=/var/log/moodle-backup.log
 UPDATE_LOG=/var/log/moodle-updates.log
 
+<<<<<<< HEAD
 echo "=== Moodle Startup Script ==="
 echo "Environment: $ENVIRONMENT"
+=======
+
+# Use environment, specific config file
+
+if [ "$ENVIRONMENT" = "development" ]; then
+    MOODLE_CONFIG=$MOODLE_DIR/public/config.dev.php
+    DEBUG_LEVEL="32767"
+    DEBUGDISPLAY="true"
+else
+    MOODLE_CONFIG=$MOODLE_DIR/public/config.prod.php
+    DEBUG_LEVEL="0"
+    DEBUGDISPLAY="false"
+fi
+
+
+echo "=== Moodle Startup Script ==="
+echo "Environment: $ENVIRONMENT"
+echo "Config file: $MOODLE_CONFIG"
+>>>>>>> 5b92e3e (add entrypoint script)
 
 mkdir -p /var/log
 touch "$LOG_FILE" "$UPDATE_LOG"
@@ -33,15 +53,22 @@ if [ ! -d "$MOODLE_DIR/public" ]; then
     if [ -d "/opt/moodle-source" ]; then
         echo "[$(date)] Copying Moodle source from /opt/moodle-source..."
         cp -r /opt/moodle-source/* "$MOODLE_DIR/"
+<<<<<<< HEAD
         chown -R www-data:www-data "$MOODLE_DIR"
         echo "[$(date)] Moodle source copied succesfully"
     else
         echo "[$(date)] FATAL: No Moodle source available. Exiting."
         ls -la /opt/moodle-source/ 2>/dev/null || echo "Directory not found"
+=======
+        echo "[$(date)] Moodle source copied succesfully"
+    else
+        echo "[$(date)] FATAL: No Moodle source available. Exiting."
+>>>>>>> 5b92e3e (add entrypoint script)
         exit 1
     fi
 fi
 
+<<<<<<< HEAD
 # Verify again after copy
 if [ ! -d "$MOODLE_DIR/public" ] || [ ! -f "$MOODLE_DIR/public/index.php" ]; then
     echo "[$(date)] FATAL: public/index.php still not found after copy. Exiting."
@@ -64,6 +91,8 @@ fi
 
 echo "Config file: $MOODLE_CONFIG"
 
+=======
+>>>>>>> 5b92e3e (add entrypoint script)
 # Check if config need regeneration
 check_config() {
     local config_file=$1
@@ -141,8 +170,13 @@ if ('$ENVIRONMENT' === 'development'){
 
 // Load DEfault settings jika ada
 
+<<<<<<< HEAD
 if (file_exists(__DIR__ . '/../../app/custom/config_defaults.php')) { 
     include(__DIR__ . '/../../app/custom/config-defaults.php');
+=======
+if (file_exists(__DIR__. '../../app/custom/config_defaults.php')) { 
+    include(__DIR__ .'/../../app/custom/config-defaults.php');
+>>>>>>> 5b92e3e (add entrypoint script)
     }
 
 require_once(__DIR__ . '/lib/setup.php');
@@ -150,17 +184,24 @@ EOF
 
     chmod 640 "$MOODLE_CONFIG"
     chown www-data:www-data "$MOODLE_CONFIG"
+<<<<<<< HEAD
     echo "[$(date)] Moodle config.php ($ENVIRONMENT)created/updated: $MOODLE_CONFIG"
+=======
+    echo "[$(date)] Moodle config.php ($ENVIRONMENT) created/updated: $MOODLE_CONFIG"
+>>>>>>> 5b92e3e (add entrypoint script)
     # CReate sysmlink dari config.php ke config environment specifi
     rm -f "$MOODLE_DIR/config.php"
     ln -s "public/$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/config.php"  
     echo "[$(date)] Symlink created: config.php -> public/$(basename $MOODLE_CONFIG)"
 
+<<<<<<< HEAD
     #Create symlink di public folder untuk access web moodle
     rm -f "$MOODLE_DIR/public/config.php"
     ln -s "$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/public/config.php"
     echo "[$(date)] Symlink created: public/config.php -> $(basename $MOODLE_CONFIG)"
 
+=======
+>>>>>>> 5b92e3e (add entrypoint script)
 else
     echo "[$(date)] Moodle config.php ($ENVIRONMENT) already correct — skipping generation."
 
@@ -176,8 +217,11 @@ else
 
 fi
 
+<<<<<<< HEAD
 # Setup directories
 
+=======
+>>>>>>> 5b92e3e (add entrypoint script)
 mkdir -p /var/www/html/public/theme
 chown -R www-data:www-data /var/www/html/public/theme
 chmod 755 /var/www/html/public/theme
@@ -334,7 +378,11 @@ cat > /usr/local/bin/check-moodle-version.sh <<'VERSION_SCRIPT'
 #!/bin/bash
 
 MOODLE_DIR=/var/www/html
+<<<<<<< HEAD
 VERSION_FILE=$MOODLE_DIR/public/version.php
+=======
+VERSION_FILE=$MOODLE_DIR/version.php
+>>>>>>> 5b92e3e (add entrypoint script)
 STATE_FILE=/var/www/moodledata/.last_version
 LOG_FILE=/var/log/moodle-updates-version.log
 BACKUP_DIR=/var/www/moodledata/backups
@@ -346,7 +394,10 @@ mkdir -p "$BACKUP_DIR"
 if [ -f "$VERSION_FILE" ]; then
     # Parse release version dari version.php
     # Format: $release = '5.0 (Build: 20231218)';
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5b92e3e (add entrypoint script)
     CURRENT_VERSION=$(grep -oP "^\\\$release\s*=\s*['\"]?\K[^'\"]*" "$VERSION_FILE" 2>/dev/null | head -1)
     
     if [ -z "$CURRENT_VERSION" ]; then
@@ -497,7 +548,11 @@ chmod 666 "$LOG_FILE"
 chmod 666 "$UPDATE_LOG"
 
 
+<<<<<<< HEAD
 echo "[$(date)] Moodle startup completed, starting Web Server ..."
+=======
+echo "[$(date)] Moodle startup completed, starting Apache ..."
+>>>>>>> 5b92e3e (add entrypoint script)
 echo ""
 
 if [ "$SERVICE_TYPE" = "php-fpm" ]; then
