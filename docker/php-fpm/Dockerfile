@@ -41,7 +41,7 @@ RUN --mount=type=cache,target=/var/cache/apk \
     && apk del .build-deps
 
 # Copy php configs
-COPY php/99-moodle.ini /usr/local/etc/php/conf.d/
+COPY docker/php/99-moodle.ini /usr/local/etc/php/conf.d/
 
 # ============================================
 # Development Stage
@@ -70,7 +70,7 @@ RUN mkdir -p /var/www/moodledata \
     && chmod -R 755 /var/www
 
 # Copy entrypoint
-COPY moodle/entrypoint.sh /entrypoint.sh
+COPY docker/entrypoint/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Health check
@@ -104,7 +104,7 @@ RUN mkdir -p /var/www/moodledata \
     && chmod -R 755 /var/www
 
 # Copy entrypoint
-COPY moodle/entrypoint.sh /entrypoint.sh
+COPY docker/entrypoint/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Health check
