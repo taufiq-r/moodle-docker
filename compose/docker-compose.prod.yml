@@ -3,8 +3,8 @@ services:
   nginx:
     image: moodle-nginx-prod
     build: 
-      context: ../docker
-      dockerfile: nginx/Dockerfile
+      context: ..
+      dockerfile: docker/nginx/Dockerfile
     container_name: moodle-nginx-prod
     ports:
       - "80:80"
@@ -30,7 +30,7 @@ services:
     image: moodle-web-prod
     build:
       context: ..
-      dockerfile: php-fpm/Dockerfile
+      dockerfile: docker/php-fpm/Dockerfile
       target: production
       args:
         ENVIRONMENT: production
