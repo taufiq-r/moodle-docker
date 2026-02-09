@@ -159,7 +159,7 @@ if ('$ENVIRONMENT' === 'development'){
 
 if (file_exists(__DIR__ . '/../../app/custom/config_defaults.php')) { 
     include(__DIR__ . '/../../app/custom/config-defaults.php');
-
+    }
 
 require_once(__DIR__ . '/lib/setup.php');
 EOF
