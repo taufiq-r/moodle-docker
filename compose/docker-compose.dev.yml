@@ -35,15 +35,17 @@ services:
         ENVIRONMENT: development
     image: moodle-web-dev
     container_name: moodle-web-dev
-    ports:
-      - 8080:80
+    # ports:
+    #   - 8080:80
     volumes:
       - moodledata-dev:/var/www/moodledata
       - ../moodle:/var/www/html
       - ./custom:/app/custom
+      - ../secrets/db_password.txt:/run/secrets/db_password:ro
     depends_on:
       - postgres
-    
+    restart: always
+    env_file: .env.dev
     environment:
       ENVIRONMENT: development
       MOODLE_DATABASE_HOST: ${PGSQL_HOST}
@@ -52,8 +54,8 @@ services:
       MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
       MOODLE_WWWROOT: ${MOODLE_WWWROOT}
       DEBUG: 'true'
-    secrets:
-      - db_password
+    # secrets:
+    #   - db_password
     networks:
       - moodle-dev-network
 
@@ -66,8 +68,9 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
-    secrets:
-      - db_password
+      - ../secrets/db_password.txt:/run/secrets/db_password:ro
+    # secrets:
+    #   - db_password
     networks:
       - moodle-dev-network
 
@@ -84,9 +87,9 @@ services:
     networks:
       - moodle-dev-network
 
-secrets:
-  db_password:
-    file: ../secrets/db_password.txt
+# secrets:
+#   db_password:
+#     file: ../secrets/db_password.txt
 
 volumes:
   pgdata-dev:
