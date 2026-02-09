@@ -61,13 +61,15 @@ RUN --mount=type=cache,target=/var/cache/apk \
 WORKDIR /var/www/html
 
 # Copy Moodle & backup untuk named volume
-COPY moodle/ .
-RUN mkdir -p /opt/moodle-source && cp -r /var/www/html/* /opt/moodle-source/
+# COPY moodle/ .
+# RUN mkdir -p /opt/moodle-source && cp -r /var/www/html/* /opt/moodle-source/
+COPY --chown=www-data:www-data moodle/ .
 
 # Create moodledata directory
-RUN mkdir -p /var/www/moodledata \
-    && chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www
+# RUN mkdir -p /var/www/moodledata \
+#     && chown -R www-data:www-data /var/www \
+#     && chmod -R 755 /var/www
+RUN mkdir -p /var/www/moodledata
 
 # Copy entrypoint
 COPY docker/entrypoint/entrypoint.sh /entrypoint.sh
@@ -95,13 +97,17 @@ RUN echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.in
 WORKDIR /var/www/html
 
 # Copy Moodle & backup untuk named volume
-COPY moodle/ .
-RUN mkdir -p /opt/moodle-source && cp -r /var/www/html/* /opt/moodle-source/
+# COPY moodle/ .
+# RUN mkdir -p /opt/moodle-source && cp -r /var/www/html/* /opt/moodle-source/
+
+COPY --chown=www-data:www-data moodle/ .
 
 # Create moodledata directory
-RUN mkdir -p /var/www/moodledata \
-    && chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www
+# RUN mkdir -p /var/www/moodledata \
+#     && chown -R www-data:www-data /var/www \
+#     && chmod -R 755 /var/www
+
+RUN mkdir -p /var/www/moodledata
 
 # Copy entrypoint
 COPY docker/entrypoint/entrypoint.sh /entrypoint.sh
