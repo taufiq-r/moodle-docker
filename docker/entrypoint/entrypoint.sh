@@ -15,10 +15,6 @@ BACKUP_DIR=$MOODLE_DATA/backups
 LOG_FILE=/var/log/moodle-backup.log
 UPDATE_LOG=/var/log/moodle-updates.log
 
-<<<<<<< HEAD
-echo "=== Moodle Startup Script ==="
-echo "Environment: $ENVIRONMENT"
-=======
 
 # Use environment, specific config file
 
@@ -36,7 +32,6 @@ fi
 echo "=== Moodle Startup Script ==="
 echo "Environment: $ENVIRONMENT"
 echo "Config file: $MOODLE_CONFIG"
->>>>>>> 5b92e3e (add entrypoint script)
 
 mkdir -p /var/log
 touch "$LOG_FILE" "$UPDATE_LOG"
