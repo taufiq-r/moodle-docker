@@ -1,0 +1,4 @@
+# filepath: .gitattributes
+*.sh text eol=lf
+*.bash text eol=lf
+entrypoint.sh text eol=lf
