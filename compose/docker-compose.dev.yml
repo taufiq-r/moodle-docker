@@ -4,8 +4,8 @@ services:
   nginx:
     image: moodle-nginx-dev
     build: 
-      context: ../docker
-      dockerfile: nginx/Dockerfile
+      context: ..
+      dockerfile: docker/nginx/Dockerfile
     container_name: moodle-nginx-dev
     ports:
       - "8080:80"
@@ -29,8 +29,8 @@ services:
   moodleapp:
     image: moodle-web-dev
     build:
-      context: ../docker
-      dockerfile: php-fpm/Dockerfile
+      context: ..
+      dockerfile: docker/php-fpm/Dockerfile
       target: development
       args:
         ENVIRONMENT: development
