@@ -48,12 +48,7 @@ if [ ! -d "$MOODLE_DIR/public" ]; then
     if [ -d "/opt/moodle-source" ]; then
         echo "[$(date)] Copying Moodle source from /opt/moodle-source..."
         cp -r /opt/moodle-source/* "$MOODLE_DIR/"
-
         chown -R www-data:www-data "$MOODLE_DIR"
-        echo "[$(date)] Moodle source copied succesfully"
-    else
-        echo "[$(date)] FATAL: No Moodle source available. Exiting."
-        ls -la /opt/moodle-source/ 2>/dev/null || echo "Directory not found"
         echo "[$(date)] Moodle source copied succesfully"
     else
         echo "[$(date)] FATAL: No Moodle source available. Exiting."
@@ -166,27 +161,11 @@ if ('$ENVIRONMENT' === 'development'){
 if (file_exists(__DIR__ . '/../../app/custom/config_defaults.php')) { 
     include(__DIR__ . '/../../app/custom/config-defaults.php');
 
-if (file_exists(__DIR__. '../../app/custom/config_defaults.php')) { 
-    include(__DIR__ .'/../../app/custom/config-defaults.php');
-
-if (file_exists(__DIR__. '../../app/custom/config_defaults.php')) { 
-    include(__DIR__ .'/../../app/custom/config-defaults.php');
-
-if (file_exists(__DIR__ . '/../../app/custom/config_defaults.php')) { 
-    include(__DIR__ . '/../../app/custom/config-defaults.php');
-    }
-
 require_once(__DIR__ . '/lib/setup.php');
 EOF
 
     chmod 640 "$MOODLE_CONFIG"
     chown www-data:www-data "$MOODLE_CONFIG"
-
-    echo "[$(date)] Moodle config.php ($ENVIRONMENT)created/updated: $MOODLE_CONFIG"
-
-    echo "[$(date)] Moodle config.php ($ENVIRONMENT) created/updated: $MOODLE_CONFIG"
-
-    echo "[$(date)] Moodle config.php ($ENVIRONMENT) created/updated: $MOODLE_CONFIG"
 
     echo "[$(date)] Moodle config.php ($ENVIRONMENT)created/updated: $MOODLE_CONFIG"
 
@@ -216,12 +195,7 @@ else
     fi
 
 fi
-
 # Setup directories
-
-
-# Setup directories
-
 mkdir -p /var/www/html/public/theme
 chown -R www-data:www-data /var/www/html/public/theme
 chmod 755 /var/www/html/public/theme
@@ -378,10 +352,6 @@ cat > /usr/local/bin/check-moodle-version.sh <<'VERSION_SCRIPT'
 #!/bin/bash
 
 MOODLE_DIR=/var/www/html
-
-VERSION_FILE=$MOODLE_DIR/public/version.php
-VERSION_FILE=$MOODLE_DIR/version.php
-VERSION_FILE=$MOODLE_DIR/version.php
 VERSION_FILE=$MOODLE_DIR/public/version.php
 STATE_FILE=/var/www/moodledata/.last_version
 LOG_FILE=/var/log/moodle-updates-version.log
@@ -542,9 +512,6 @@ chmod -R 755 /var/www/html # 7 = rwx, 5 = r-x / rwxr-xr-x
 chmod -R 755 /var/www/moodledata # rwxr-xr-x
 chmod 666 "$LOG_FILE"
 chmod 666 "$UPDATE_LOG"
-echo "[$(date)] Moodle startup completed, starting Web Server ..."
-echo "[$(date)] Moodle startup completed, starting Apache ..."
-echo "[$(date)] Moodle startup completed, starting Apache ..."
 echo "[$(date)] Moodle startup completed, starting Web Server ..."
 echo ""
 
