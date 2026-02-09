@@ -44,7 +44,7 @@ run_test() {
 
 echo -e "\n${YELLOW}1. Container Health Tests${NC}"
 run_test "Moodle container running" \
-    "docker ps --filter 'name=moodle-web-dev' --filter 'status=running' --quiet | grep -q ."
+    "docker ps --filter 'name=moodle-app-dev' --filter 'status=running' --quiet | grep -q ."
 
 run_test "PostgreSQL container running" \
     "docker ps --filter 'name=moodle-pgdb-dev' --filter 'status=running' --quiet | grep -q ."
