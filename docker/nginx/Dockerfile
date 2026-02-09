@@ -1,8 +1,13 @@
 FROM nginx:alpine
 
 # COpy Nginx config file
+<<<<<<< HEAD
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx/moodle.conf /etc/nginx/conf.d/default.conf
+=======
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/moodle.conf /etc/nginx/conf.d/default.conf
+>>>>>>> e927c2e (add nginx Dockerfile)
 
 # Create cache directory
 

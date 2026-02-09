@@ -27,26 +27,25 @@ services:
       start_period: 30s
 
   moodleapp:
-    image: moodle-web-dev
     build:
       context: ..
       dockerfile: docker/php-fpm/Dockerfile
       target: development
       args:
         ENVIRONMENT: development
-    container_name: moodle-app-dev
-    env_file: .env.dev
+    image: moodle-web-dev
+    container_name: moodle-web-dev
+    ports:
+      - 8080:80
     volumes:
       - moodledata-dev:/var/www/moodledata
       - ../moodle:/var/www/html
-      #- moodle-data:/var/www/html
       - ./custom:/app/custom
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+    
     environment:
       ENVIRONMENT: development
-      SERVICE_TYPE: php-fpm
       MOODLE_DATABASE_HOST: ${PGSQL_HOST}
       MOODLE_DATABASE_USER: ${PGSQL_USER}
       MOODLE_DATABASE_NAME: ${PGSQL_DATABASE}
@@ -57,18 +56,10 @@ services:
       - db_password
     networks:
       - moodle-dev-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pidof php-fpm > /dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
 
   postgres:
     image: postgres:17-alpine
     container_name: moodle-pgdb-dev
-    env_file: .env.dev
     environment:
       POSTGRES_DB: ${PGSQL_DATABASE}
       POSTGRES_USER: ${PGSQL_USER}
@@ -77,20 +68,12 @@ services:
       - pgdata-dev:/var/lib/postgresql/data
     secrets:
       - db_password
-      #- db_root_password
     networks:
       - moodle-dev-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PGSQL_USER} -d ${PGSQL_DATABASE}"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin-dev
-    env_file: .env.dev
     ports:
       - "81:80"
     environment:
@@ -100,19 +83,14 @@ services:
       - postgres
     networks:
       - moodle-dev-network
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    restart: unless-stopped
 
 secrets:
   db_password:
     file: ../secrets/db_password.txt
 
 volumes:
-  pgdata-dev: # PostgreSQL data
-  moodledata-dev: # Moodle data folder
-  moodle-data: #Moodle source code
-  pgadmin-data: # PgAdmin data
+  pgdata-dev:
+  moodledata-dev:
 
 networks:
   moodle-dev-network:
