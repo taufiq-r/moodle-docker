@@ -8,7 +8,7 @@ set -e
 ENVIRONMENT=${ENVIRONMENT:-production}
 
 
-MOODLE_DIR=/var/www/html
+MOODLE_DIR=/var/www/html/public
 MOODLE_CONFIG=$MOODLE_DIR/config.php
 MOODLE_DATA=/var/www/moodledata
 BACKUP_DIR=$MOODLE_DATA/backups
@@ -18,15 +18,15 @@ UPDATE_LOG=/var/log/moodle-updates.log
 
 # Use environment, specific config file
 
-if [ "$ENVIRONMENT" = "development" ]; then
-    MOODLE_CONFIG=$MOODLE_DIR/public/config.dev.php
-    DEBUG_LEVEL="32767"
-    DEBUGDISPLAY="true"
-else
-    MOODLE_CONFIG=$MOODLE_DIR/public/config.prod.php
-    DEBUG_LEVEL="0"
-    DEBUGDISPLAY="false"
-fi
+# if [ "$ENVIRONMENT" = "development" ]; then
+#     MOODLE_CONFIG=$MOODLE_DIR/config.dev.php
+#     DEBUG_LEVEL="32767"
+#     DEBUGDISPLAY="true"
+# else
+#     MOODLE_CONFIG=$MOODLE_DIR/config.prod.php
+#     DEBUG_LEVEL="0"
+#     DEBUGDISPLAY="false"
+# fi
 
 
 echo "=== Moodle Startup Script ==="
@@ -39,8 +39,8 @@ chmod 666 "$LOG_FILE" "$UPDATE_LOG"
 echo "[$(date)] Log files initialized"
 
 # Ensure public directory exist
-if [ ! -d "$MOODLE_DIR/public" ]; then
-    echo "[$(date)] ERROR: Moodle source not found at $MOODLE_DIR/public"
+if [ ! -d "$MOODLE_DIR" ]; then
+    echo "[$(date)] ERROR: Moodle source not found at $MOODLE_DIR"
     echo "[$(date)] Please ensure moodle is properly mounted or copied to the container"
 
     # if using named volume & not exist, try copy from image
@@ -57,7 +57,7 @@ if [ ! -d "$MOODLE_DIR/public" ]; then
 fi
 
 # Verify again after copy
-if [ ! -d "$MOODLE_DIR/public" ] || [ ! -f "$MOODLE_DIR/public/index.php" ]; then
+if [ ! -d "$MOODLE_DIR" ] || [ ! -f "$MOODLE_DIR/index.php" ]; then
     echo "[$(date)] FATAL: public/index.php still not found after copy. Exiting."
     exit 1
 fi
@@ -66,11 +66,11 @@ fi
 # Use environment, specific config file
 
 if [ "$ENVIRONMENT" = "development" ]; then
-    MOODLE_CONFIG=$MOODLE_DIR/public/config.dev.php
+    MOODLE_CONFIG=$MOODLE_DIR/config.dev.php
     DEBUG_LEVEL="32767"
     DEBUGDISPLAY="true"
 else
-    MOODLE_CONFIG=$MOODLE_DIR/public/config.prod.php
+    MOODLE_CONFIG=$MOODLE_DIR/config.prod.php
     DEBUG_LEVEL="0"
     DEBUGDISPLAY="false"
 fi
@@ -158,7 +158,7 @@ if ('$ENVIRONMENT' === 'development'){
 
 
 if (file_exists(__DIR__ . '/../../app/custom/config_defaults.php')) { 
-    include(__DIR__ . '/../../app/custom/config-defaults.php');
+    include(__DIR__ . '/../../app/custom/config_defaults.php');
     }
 
 require_once(__DIR__ . '/lib/setup.php');
@@ -180,8 +180,8 @@ EOF
 
 
     #Create symlink di public folder untuk access web moodle
-    rm -f "$MOODLE_DIR/public/config.php"
-    ln -s "$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/public/config.php"
+    rm -f "$MOODLE_DIR/config.php"
+    ln -s "$(basename $MOODLE_CONFIG)" "$MOODLE_DIR/config.php"
     echo "[$(date)] Symlink created: public/config.php -> $(basename $MOODLE_CONFIG)"
 
 else
@@ -355,9 +355,9 @@ chmod +x /usr/local/bin/watch-moodle-updates.sh
 cat > /usr/local/bin/check-moodle-version.sh <<'VERSION_SCRIPT'
 #!/bin/bash
 
-MOODLE_DIR=/var/www/html
+MOODLE_DIR=/var/www/html/public
 
-VERSION_FILE=$MOODLE_DIR/public/version.php
+VERSION_FILE=$MOODLE_DIR/version.php
 STATE_FILE=/var/www/moodledata/.last_version
 LOG_FILE=/var/log/moodle-updates-version.log
 BACKUP_DIR=/var/www/moodledata/backups
