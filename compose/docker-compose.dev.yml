@@ -12,6 +12,7 @@ services:
     volumes:
       - ../docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ../docker/nginx/moodle.conf:/etc/nginx/conf.d/default.conf:ro
+      - moodle-code:/var/www/html
       #- ../moodle:/var/www/html:ro
     depends_on:
        moodleapp:
@@ -39,6 +40,7 @@ services:
     #   - 8080:80
     volumes:
       - moodledata-dev:/var/www/moodledata
+      - moodle-code:/var/www/html
       #- ../moodle:/var/www/html
       - ./custom:/app/custom
       - ../secrets/db_password.txt:/run/secrets/db_password:ro
@@ -94,6 +96,7 @@ services:
 volumes:
   pgdata-dev:
   moodledata-dev:
+  moodle-code:
 
 networks:
   moodle-dev-network:
