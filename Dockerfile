@@ -1,4 +1,3 @@
-
 ARG ENVIRONMENT=production
 
 FROM php:8.4-fpm-alpine AS base
@@ -41,7 +40,7 @@ RUN --mount=type=cache,target=/var/cache/apk \
     && apk del .build-deps
 
 # Copy php configs
-COPY docker/php/99-moodle.ini /usr/local/etc/php/conf.d/
+COPY config/php/99-moodle.ini /usr/local/etc/php/conf.d/
 
 # ============================================
 # Development Stage
@@ -61,9 +60,9 @@ RUN --mount=type=cache,target=/var/cache/apk \
 WORKDIR /var/www/html
 
 # Copy Moodle & backup untuk named volume
-# COPY moodle/ .
+# COPY source moodle dari src/ .
 # RUN mkdir -p /opt/moodle-source && cp -r /var/www/html/* /opt/moodle-source/
-COPY --chown=www-data:www-data moodle/ .
+COPY --chown=www-data:www-data src/ .
 
 # Create moodledata directory
 # RUN mkdir -p /var/www/moodledata \
@@ -71,8 +70,12 @@ COPY --chown=www-data:www-data moodle/ .
 #     && chmod -R 755 /var/www
 RUN mkdir -p /var/www/moodledata
 
-# Copy entrypoint
-COPY docker/entrypoint/entrypoint.sh /entrypoint.sh
+# Copy Scripts
+COPY scripts/ /opt/scripts/
+COPY migration/ /opt/migration/
+RUN chmod +x /opt/scripts/*.sh
+
+COPY config/entrypoint/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Health check
@@ -100,7 +103,7 @@ WORKDIR /var/www/html
 # COPY moodle/ .
 # RUN mkdir -p /opt/moodle-source && cp -r /var/www/html/* /opt/moodle-source/
 
-COPY --chown=www-data:www-data moodle/ .
+COPY --chown=www-data:www-data src/ .
 
 # Create moodledata directory
 # RUN mkdir -p /var/www/moodledata \
@@ -110,7 +113,11 @@ COPY --chown=www-data:www-data moodle/ .
 RUN mkdir -p /var/www/moodledata
 
 # Copy entrypoint
-COPY docker/entrypoint/entrypoint.sh /entrypoint.sh
+COPY scripts/ /opt/scripts/
+COPY migration/ /opt/migration/
+RUN chmod +x /opt/scripts/*.sh
+
+COPY config/entrypoint/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Health check
