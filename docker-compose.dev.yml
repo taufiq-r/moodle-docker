@@ -1,6 +1,4 @@
 services:
-
-
   nginx:
     image: nginx:alpine
     container_name: moodle-nginx-dev
@@ -9,9 +7,7 @@ services:
     volumes:
       - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./config/nginx/moodle.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./src:/var/www/html
-      #- moodle-code:/var/www/html
-      #- ../moodle:/var/www/html:ro
+      - moodle-code:/var/www/html   #  named volume untuk windows environment
     depends_on:
        moodleapp:
          condition: service_started
@@ -34,14 +30,9 @@ services:
         ENVIRONMENT: development
     image: moodle-web-dev
     container_name: moodle-web-dev
-    # ports:
-    #   - 8080:80
     volumes:
       - ./data/moodle_data-dev:/var/www/moodledata
-      - ./src:/var/www/html
-      #- moodle-code:/var/www/html 
-      #- ../moodle:/var/www/html
-      #- ./custom:/app/custom
+      - moodle-code:/var/www/html   #  named volume untuk windows environment
       - ./secrets/db_password.txt:/run/secrets/db_password:ro
     depends_on:
       - postgres
@@ -56,8 +47,6 @@ services:
       MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
       MOODLE_WWWROOT: ${MOODLE_WWWROOT}
       DEBUG: 'true'
-    # secrets:
-    #   - db_password
     networks:
       - moodle-dev-network
 
@@ -72,11 +61,8 @@ services:
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
       - ./secrets/db_password.txt:/run/secrets/db_password:ro
-    # secrets:
-    #   - db_password
     networks:
       - moodle-dev-network
-    
 
   pgadmin:
     image: dpage/pgadmin4
@@ -97,7 +83,7 @@ services:
     entrypoint: ["/bin/sh","-c","/opt/scripts/generate-config.sh && /opt/scripts/cron.sh && crond -f -l 8"]
     volumes:
       - ./data/moodle_data-dev:/var/www/moodledata
-      - ./src:/var/www/html
+      - moodle-code:/var/www/html   #  named volume untuk windows environment
       - ./secrets/db_password.txt:/run/secrets/db_password:ro
     environment:
       ENVIRONMENT: development
@@ -109,16 +95,11 @@ services:
       - moodle-dev-network
     restart: always
 
-# secrets:
-#   db_password:
-#     file: ../secrets/db_password.txt
-
 volumes:
   pgdata-dev:
   moodledata-dev:
-  moodle-code:
+  moodle-code:      #  named volume untuk windows environment
 
 networks:
   moodle-dev-network:
-    driver: bridge 
-    
+    driver: bridge
