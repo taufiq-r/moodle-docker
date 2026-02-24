@@ -110,6 +110,10 @@ EOF
 
     rm -f "$MOODLE_PUBLIC/config.php"
     ln -s "$(basename "$MOODLE_CONFIG")" "$MOODLE_PUBLIC/config.php"
+
+    # Ensure CLI can find config.php at project root
+    rm -f "$MOODLE_DIR/config.php"
+    ln -s "public/$(basename "$MOODLE_CONFIG")" "$MOODLE_DIR/config.php"
     
     echo "[$(date)] Config Created: $MOODLE_CONFIG"
 else
