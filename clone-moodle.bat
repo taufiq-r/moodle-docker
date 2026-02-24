@@ -4,7 +4,7 @@
 setlocal
 :: start a local environment variable, so dont affect global environment
 
-set TARGET=moodle
+set TARGET=src
 :: set a variable called TARGET with the value "moodle"
 
 if exist "%TARGET\" (
