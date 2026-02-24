@@ -1,0 +1,124 @@
+services:
+
+
+  nginx:
+    image: nginx:alpine
+    container_name: moodle-nginx-dev
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/moodle.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./src:/var/www/html
+      #- moodle-code:/var/www/html
+      #- ../moodle:/var/www/html:ro
+    depends_on:
+       moodleapp:
+         condition: service_started
+    networks:
+      - moodle-dev-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  moodleapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        ENVIRONMENT: development
+    image: moodle-web-dev
+    container_name: moodle-web-dev
+    # ports:
+    #   - 8080:80
+    volumes:
+      - ./data/moodle_data-dev:/var/www/moodledata
+      - ./src:/var/www/html
+      #- moodle-code:/var/www/html 
+      #- ../moodle:/var/www/html
+      #- ./custom:/app/custom
+      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+    depends_on:
+      - postgres
+    restart: always
+    env_file: .env.dev
+    environment:
+      ENVIRONMENT: development
+      RESTORE_ON_EMPTY_DB: "false"
+      PGSQL_HOST: ${PGSQL_HOST}
+      PGSQL_USER: ${PGSQL_USER}
+      PGSQL_DATABASE: ${PGSQL_DATABASE}
+      MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      MOODLE_WWWROOT: ${MOODLE_WWWROOT}
+      DEBUG: 'true'
+    # secrets:
+    #   - db_password
+    networks:
+      - moodle-dev-network
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: moodle-pgdb-dev
+    restart: always
+    environment:
+      POSTGRES_DB: ${PGSQL_DATABASE}
+      POSTGRES_USER: ${PGSQL_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+    # secrets:
+    #   - db_password
+    networks:
+      - moodle-dev-network
+    
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin-dev
+    ports:
+      - "81:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - moodle-dev-network
+
+  moodle-cron:
+    image: moodle-web-dev
+    container_name: moodle-cron.dev
+    entrypoint: ["/bin/sh","-c","/opt/scripts/generate-config.sh && /opt/scripts/cron.sh && crond -f -l 8"]
+    volumes:
+      - ./data/moodle_data-dev:/var/www/moodledata
+      - ./src:/var/www/html
+      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+    environment:
+      ENVIRONMENT: development
+      PGSQL_HOST: ${PGSQL_HOST}
+      PGSQL_USER: ${PGSQL_USER}
+      PGSQL_DATABASE: ${PGSQL_DATABASE}
+      MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+    networks:
+      - moodle-dev-network
+    restart: always
+
+# secrets:
+#   db_password:
+#     file: ../secrets/db_password.txt
+
+volumes:
+  pgdata-dev:
+  moodledata-dev:
+  moodle-code:
+
+networks:
+  moodle-dev-network:
+    driver: bridge 
+    
