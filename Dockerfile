@@ -42,6 +42,8 @@ RUN --mount=type=cache,target=/var/cache/apk \
 # Copy php configs
 COPY config/php/99-moodle.ini /usr/local/etc/php/conf.d/
 
+COPY config/php/zzz-custom-pool.conf /usr/local/etc/php-fpm.d/
+
 # ============================================
 # Development Stage
 # ============================================
