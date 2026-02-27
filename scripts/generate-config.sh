@@ -94,6 +94,7 @@ global \$CFG;
 if ('$ENVIRONMENT' === 'development') {
     \$CFG->debug = 32767;
     \$CFG->debugdisplay = true;
+    \$CFG->perfdebug = 15;
 
 }else {
     \$CFG->debug= 0;
