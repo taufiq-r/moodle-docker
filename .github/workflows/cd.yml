@@ -1,0 +1,149 @@
+name: CD
+
+on:
+  # Auto trigger setelah CI sukses di main
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Image tag (contoh: sha-a1b2c3d atau latest)'
+        required: false
+        default: 'latest'
+
+jobs:
+  #testing
+  # ─────────────────────────────────────────────────────────────
+  # Deploy ke Staging (PC Windows 11)
+  # Auto trigger dari CI atau manual dispatch
+  # Self-hosted runner: PC Windows 11 (TAUFIQRWIN11)
+  # ─────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: [self-hosted, Windows, X64]
+    environment: staging
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+            echo "tag=sha-${SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull latest image
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}/moodle-web:${{ steps.tag.outputs.tag }}"
+          echo "Pulling: $IMAGE"
+          docker pull "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Stop existing staging containers
+        run: |
+          docker compose -f docker-compose.dev.yml \
+            --env-file .env.staging down --remove-orphans 2>/dev/null || true
+
+      - name: Update image tag in compose file
+        run: |
+          sed -i "s|image: ghcr.io/.*/moodle-web:.*|image: ${IMAGE}|g" \
+            docker-compose.dev.yml
+
+      - name: Start staging containers
+        run: |
+          docker compose -f docker-compose.dev.yml \
+            --env-file .env.staging \
+            up -d
+
+      - name: Verify staging healthy
+        run: |
+          echo "Waiting for staging to be healthy..."
+          for i in $(seq 1 24); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' moodle-web-dev 2>/dev/null || echo "not_found")
+            echo "  [$i/24] status: $STATUS"
+            [ "$STATUS" = "healthy" ] && echo "Staging healthy!" && break
+            [ "$i" -eq 24 ] && echo "Timeout!" && exit 1
+            sleep 5
+          done
+
+      - name: Show staging status
+        if: always()
+        run: docker compose -f docker-compose.dev.yml --env-file .env.staging ps
+
+  # ─────────────────────────────────────────────────────────────
+  # Deploy ke Production
+  # HANYA manual dispatch, butuh approval di GitHub Environments
+  # GitHub hosted runner — SSH ke server production
+  # ─────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    if: |
+      github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            IMAGE="ghcr.io/${{ github.repository }}/moodle-web:${IMAGE_TAG}"
+
+            echo "=== Pulling: ${IMAGE} ==="
+            docker pull "$IMAGE"
+
+            sed -i "s|image: ghcr.io/.*/moodle-web:.*|image: ${IMAGE}|g" \
+              docker-compose.prod.yml
+
+            echo "=== Rolling restart ==="
+            docker compose -f docker-compose.prod.yml \
+              --env-file .env.prod up -d --no-deps \
+              --scale moodle-web=2 moodle-web
+
+            sleep 20
+
+            docker compose -f docker-compose.prod.yml \
+              --env-file .env.prod up -d --no-deps \
+              --scale moodle-web=1 moodle-web
+
+            docker compose -f docker-compose.prod.yml \
+              --env-file .env.prod up -d --no-deps moodle-cron
+
+            echo "=== Deploy production done: $(date) ==="
+            docker compose -f docker-compose.prod.yml --env-file .env.prod ps
