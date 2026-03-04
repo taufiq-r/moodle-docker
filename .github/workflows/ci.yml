@@ -1,13 +1,16 @@
-name: CI Build & Test
 
+name: CI Build & Test
 on:
   push:
     branches: [develop]
 
+env:
+  COMPOSE_FILE: docker-compose.dev.yml
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,11 +27,15 @@ jobs:
       - name: Start test stack
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
         
-      - name: Wait services
-        run: sleep 20
+      - name: Wait for Moodle
+        run: |
+          for i in {1..30}; do
+            docker compose exec -T moodleapp php -v && break
+            sleep 5
+          done
         
       - name: Test Moodle database
-        run: docker compose exec -T moodle php admin/cli/check_database_schema.php
+        run: docker compose exec -T moodleapp php admin/cli/check_database_schema.php
 
       - name: Stop stack
         if: always()
