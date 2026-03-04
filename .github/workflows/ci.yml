@@ -27,10 +27,25 @@ jobs:
       - name: Start test stack
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
         
-      - name: Wait for Moodle
+      - name: Wait for container running
         run: |
+          echo "Waiting for moodle-web-dev to be running..."
           for i in {1..30}; do
-            docker compose exec -T moodleapp php -v && break
+            STATUS=$(docker inspect --format='{{.State.Status}}' moodle-web-dev 2>/dev/null || echo "not found")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "running" ]; then
+              echo "Container is running!"
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Wait for PHP-FPM ready
+        run: |
+          echo "Waiting for PHP-FPM..."
+          for i in {1..30}; do
+            docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodle-web-dev php -v && break
+            echo "Attempt $i: PHP not ready yet..."
             sleep 5
           done
 
