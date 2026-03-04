@@ -44,7 +44,7 @@ jobs:
         run: |
           echo "Waiting for PHP-FPM..."
           for i in {1..30}; do
-            docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodle-web-dev php -v && break
+            docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v && break
             echo "Attempt $i: PHP not ready yet..."
             sleep 5
           done
