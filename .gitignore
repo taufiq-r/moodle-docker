@@ -5,6 +5,7 @@ secrets/
 .env.*
 
 moodledata/
-src/
+
 moodle/
 *.md
+data/
