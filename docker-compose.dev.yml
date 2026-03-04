@@ -10,7 +10,7 @@ services:
       - moodle-code:/var/www/html   #  named volume untuk windows environment
     depends_on:
        moodleapp:
-         condition: service_started
+         condition: service_healthy
     networks:
       - moodle-dev-network
     restart: unless-stopped
@@ -50,6 +50,12 @@ services:
       DEBUG: 'true'
     networks:
       - moodle-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   postgres:
     image: postgres:17-alpine
