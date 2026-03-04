@@ -3,9 +3,6 @@ secrets/
 *.log
 *.sql
 .env.*
-
 moodledata/
-
 moodle/
 *.md
-data/
