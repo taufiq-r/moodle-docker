@@ -27,34 +27,39 @@ jobs:
       - name: Start test stack
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
         
-      - name: Wait for container running
+      - name: Wait for container healthy
         run: |
-          echo "Waiting for moodle-web-dev to be running..."
-          for i in {1..30}; do
-            STATUS=$(docker inspect --format='{{.State.Status}}' moodle-web-dev 2>/dev/null || echo "not found")
-            echo "Attempt $i: $STATUS"
-            if [ "$STATUS" = "running" ]; then
-              echo "Container is running!"
+          echo "Waiting for moodle-web-dev healthy..."
+          for i in {1..24}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' moodle-web-dev 2>/dev/null || echo "not found")
+            echo "Attempt $i/24: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Container is healthy!"
               break
+            fi
+            if [ $i -eq 24 ]; then
+              echo "Timeout waiting for container!"
+              docker compose -f docker-compose.dev.yml --env-file .env.ci logs
+              exit 1
             fi
             sleep 5
           done
 
-      - name: Wait for PHP-FPM ready
-        run: |
-          echo "Waiting for PHP-FPM..."
-          for i in {1..30}; do
-            docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v && break
-            echo "Attempt $i: PHP not ready yet..."
-            sleep 5
-          done
+      #- name: Wait for PHP-FPM ready
+        #run: |
+          #echo "Waiting for PHP-FPM..."
+          #for i in {1..30}; do
+            #docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v && break
+            #echo "Attempt $i: PHP not ready yet..."
+            #sleep 5
+          #done
 
       - name: Show containers
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci ps
 
       - name: Install Moodle if needed
         run: |
-          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodle-web-dev bash -c "
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "
             php public/admin/cli/isinstalled.php || \
             php public/admin/cli/install_database.php \
               --agree-license \
@@ -66,7 +71,8 @@ jobs:
           "
         
       - name: Test Moodle database
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodle-web-dev php public/admin/cli/check_database_schema.php
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php public/admin/cli/check_database_schema.php
+     
       - name: Show logs if failed
         if: failure()
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci logs
