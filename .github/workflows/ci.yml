@@ -1,12 +1,9 @@
-
 name: CI Build & Test
 on:
   push:
     branches: [develop]
-
 env:
   COMPOSE_FILE: docker-compose.dev.yml
-
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -26,7 +23,7 @@ jobs:
 
       - name: Start test stack
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
-        
+
       - name: Wait for container healthy
         run: |
           echo "Waiting for moodle-web-dev healthy..."
@@ -45,17 +42,13 @@ jobs:
             sleep 5
           done
 
-      #- name: Wait for PHP-FPM ready
-        #run: |
-          #echo "Waiting for PHP-FPM..."
-          #for i in {1..30}; do
-            #docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v && break
-            #echo "Attempt $i: PHP not ready yet..."
-            #sleep 5
-          #done
-
       - name: Show containers
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci ps
+
+      - name: Debug minify files
+        run: |
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp \
+            ls /var/www/html/public/lib/minify/matthiasmullie-minify/src/data/ || echo "FOLDER MISSING"
 
       - name: Install Moodle if needed
         run: |
@@ -67,15 +60,24 @@ jobs:
               --adminpass=Admin123! \
               --adminemail=admin@example.com \
               --fullname='CI Moodle' \
-              --shortname='CI' || true
+              --shortname='CI'
           "
-        
+          echo "Install exit code: $?"
+
       - name: Test Moodle database
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "cd /var/www/html && php admin/cli/check_database_schema.php"     
+        run: |
+          RESULT=$(docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "cd /var/www/html && php admin/cli/check_database_schema.php")
+          echo "$RESULT"
+          if echo "$RESULT" | grep -q "table is missing"; then
+            echo "Database schema check FAILED"
+            exit 1
+          fi
+          echo "Database schema check PASSED"
+
       - name: Show logs if failed
         if: failure()
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci logs
-        
+
       - name: Stop stack
         if: always()
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci down -v
