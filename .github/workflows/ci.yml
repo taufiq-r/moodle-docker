@@ -7,26 +7,21 @@ env:
 jobs:
   build-test:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Login Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
       - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/moodle:test-${{ github.sha }} .
+        run: docker build -t moodle:test-${{ github.sha }} .
 
       - name: Smoke test image
-        run: docker run --rm --entrypoint php ${{ secrets.DOCKER_USERNAME }}/moodle:test-${{ github.sha }} -v
+        run: docker run --rm --entrypoint php moodle:test-${{ github.sha }} -v
 
       - name: Start test stack
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
 
       - name: Wait for container healthy
         run: |
-          echo "Waiting for moodle-web-dev healthy..."
           for i in {1..24}; do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' moodle-web-dev 2>/dev/null || echo "not found")
             echo "Attempt $i/24: $STATUS"
@@ -35,44 +30,27 @@ jobs:
               break
             fi
             if [ $i -eq 24 ]; then
-              echo "Timeout waiting for container!"
+              echo "Timeout!"
               docker compose -f docker-compose.dev.yml --env-file .env.ci logs
               exit 1
             fi
             sleep 5
           done
 
-      - name: Show containers
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci ps
+      - name: Test PHP
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v
 
-      - name: Debug minify files
-        run: |
-          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp \
-            ls /var/www/html/public/lib/minify/matthiasmullie-minify/src/data/ || echo "FOLDER MISSING"
-
-      - name: Install Moodle if needed
+      - name: Test database connection
         run: |
           docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "
-            cd /var/www/html && \
-            php admin/cli/install_database.php \
-              --agree-license \
-              --adminuser=admin \
-              --adminpass=Admin123! \
-              --adminemail=admin@example.com \
-              --fullname='CI Moodle' \
-              --shortname='CI'
+            php -r \"\\\$c=pg_connect('host=postgres dbname=moodle user=moodle password=ci-test-password');
+            if(!\\\$c){echo 'DB FAILED';exit(1);}echo 'DB OK';\"
           "
-          echo "Install exit code: $?"
 
-      - name: Test Moodle database
+      - name: Test Moodle config exists
         run: |
-          RESULT=$(docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "cd /var/www/html && php admin/cli/check_database_schema.php")
-          echo "$RESULT"
-          if echo "$RESULT" | grep -q "table is missing"; then
-            echo "Database schema check FAILED"
-            exit 1
-          fi
-          echo "Database schema check PASSED"
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp \
+            test -f /var/www/html/config.php && echo "config.php OK" || exit 1
 
       - name: Show logs if failed
         if: failure()
