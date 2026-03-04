@@ -71,7 +71,7 @@ jobs:
           "
         
       - name: Test Moodle database
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "cd /var/www/html && php public/admin/cli/check_database_schema.php"
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "cd /var/www/html && php /admin/cli/check_database_schema.php"
      
       - name: Show logs if failed
         if: failure()
