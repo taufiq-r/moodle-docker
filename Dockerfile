@@ -66,7 +66,9 @@ WORKDIR /var/www/html
 # RUN mkdir -p /opt/moodle-source && cp -r /var/www/html/* /opt/moodle-source/
 COPY --chown=www-data:www-data src/ .
 
-RUN cd /var/www/html && composer install --no-interaction --no-dev --optimize-autoloader
+RUN apk add --no-cache composer \
+    && composer install --no-interaction --no-dev --optimize-autoloader --ignore-platform-reqs \
+    && apk del composer
 
 # Create moodledata directory
 # RUN mkdir -p /var/www/moodledata \
@@ -111,7 +113,7 @@ COPY --chown=www-data:www-data src/ .
 
 # Install composer dependencies
 RUN apk add --no-cache composer \
-    && cd /var/www/html && composer install --no-interaction --no-dev --optimize-autoloader \
+    && composer install --no-interaction --no-dev --optimize-autoloader --ignore-platform-reqs \
     && apk del composer
 
 # Create moodledata directory
