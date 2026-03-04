@@ -18,5 +18,18 @@ jobs:
       - name: Build Docker image
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/moodle:test-${{ github.sha }} .
 
-      - name: Run basic test
-        run: docker run --rm ${{ secrets.DOCKER_USERNAME }}/moodle:test-${{ github.sha }} php -v
+      - name: Smoke test image
+        run: docker run --rm --entrypoint php ${{ secrets.DOCKER_USERNAME }}/moodle:test-${{ github.sha }} -v
+
+      - name: Start test stack
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
+        
+      - name: Wait services
+        run: sleep 20
+        
+      - name: Test Moodle database
+        run: docker compose exec -T moodle php admin/cli/check_database_schema.php
+
+      - name: Stop stack
+        if: always()
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci down
