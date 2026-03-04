@@ -60,18 +60,18 @@ jobs:
       - name: Install Moodle if needed
         run: |
           docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "
-            php public/admin/cli/isinstalled.php || \
+            cd /var/www/html && \
             php public/admin/cli/install_database.php \
               --agree-license \
               --adminuser=admin \
               --adminpass=Admin123! \
               --adminemail=admin@example.com \
               --fullname='CI Moodle' \
-              --shortname='CI'
+              --shortname='CI' || true
           "
         
       - name: Test Moodle database
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php public/admin/cli/check_database_schema.php
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "cd /var/www/html && php public/admin/cli/check_database_schema.php"
      
       - name: Show logs if failed
         if: failure()
