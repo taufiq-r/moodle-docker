@@ -33,10 +33,17 @@ jobs:
             docker compose exec -T moodleapp php -v && break
             sleep 5
           done
+
+      - name: Show containers
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci ps
         
       - name: Test Moodle database
-        run: docker compose exec -T moodleapp php admin/cli/check_database_schema.php
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php admin/cli/check_database_schema.php
 
+      - name: Show logs if failed
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci logs
+        
       - name: Stop stack
         if: always()
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci down
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci down -v
