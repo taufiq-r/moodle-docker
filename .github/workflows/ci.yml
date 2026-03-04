@@ -39,9 +39,9 @@ jobs:
 
       - name: Install Moodle if needed
         run: |
-          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "
-            php admin/cli/isinstalled.php || \
-            php admin/cli/install_database.php \
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodle-web-dev bash -c "
+            php public/admin/cli/isinstalled.php || \
+            php public/admin/cli/install_database.php \
               --agree-license \
               --adminuser=admin \
               --adminpass=Admin123! \
@@ -51,8 +51,7 @@ jobs:
           "
         
       - name: Test Moodle database
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php admin/cli/check_database_schema.php
-
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodle-web-dev php public/admin/cli/check_database_schema.php
       - name: Show logs if failed
         if: failure()
         run: docker compose -f docker-compose.dev.yml --env-file .env.ci logs
