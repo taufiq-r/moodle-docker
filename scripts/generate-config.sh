@@ -27,7 +27,12 @@ if [ ! -f "$MOODLE_PUBLIC/index.php" ]; then
     exit 1
 fi
 
+CONFIG_ROOT="$MOODLE_DIR/config.php"
 
+if [ -f "$CONFIG_ROOT" ]; then
+    echo "[$(date)] config.php already exists (installed Moodle), skipping generation"
+    exit 0
+fi
 
 check_config() {
     local config_file=$1
