@@ -53,12 +53,16 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd C:\moodle
+
+            echo "Login GHCR"
+            docker login ghcr.io -u taufiqr -p ${{ secrets.GHCR_TOKEN }}
             
             echo "Pull New Image"
-            docker compose pull
+            docker compose -f docker-compose.prod.yml pull
+            
 
             echo "Restart Container"
-            docker compose up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
             echo "Cleanup Old Image"
             docker image prune -f
