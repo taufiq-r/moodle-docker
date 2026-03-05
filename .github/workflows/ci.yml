@@ -3,42 +3,62 @@ on:
   push:
     branches: [develop]
 env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/moodle
   COMPOSE_FILE: docker-compose.dev.yml
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Login GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Build Docker image
-        run: docker build -t moodle:test-${{ github.sha }} .
+        run: |
+          docker run --rm --entrypoint php \
+          $IMAGE_NAME:ci-${{ github.sha }} .
 
       - name: Smoke test image
-        run: docker run --rm --entrypoint php moodle:test-${{ github.sha }} -v
+        run: |
+          docker run --rm --entrypoint php \
+           $IMAGE_NAME:ci-${{ github.sha }} -v
 
       - name: Start test stack
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
+        run: |
+          docker compose -f docker-compose.dev.yml \ 
+          --env-file .env.ci up -d
 
       - name: Wait for container healthy
         run: |
           for i in {1..24}; do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' moodle-web-dev 2>/dev/null || echo "not found")
             echo "Attempt $i/24: $STATUS"
+
             if [ "$STATUS" = "healthy" ]; then
               echo "Container is healthy!"
               break
             fi
+
             if [ $i -eq 24 ]; then
               echo "Timeout!"
               docker compose -f docker-compose.dev.yml --env-file .env.ci logs
               exit 1
             fi
+
             sleep 5
           done
 
-      - name: Test PHP
-        run: docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v
+      - name: Test PHP runtime
+        run: |
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v
 
       - name: Test database connection
         run: |
@@ -51,6 +71,13 @@ jobs:
         run: |
           docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp \
             test -f /var/www/html/config.php && echo "config.php OK" || exit 1
+
+      - name: Push staging image
+        run: |
+          docker tag $IMAGE_NAME:ci-${{ github.sha }} \
+                     $IMAGE_NAME:staging
+          docker push $IMAGE_NAME:staging
+        
 
       - name: Show logs if failed
         if: failure()
