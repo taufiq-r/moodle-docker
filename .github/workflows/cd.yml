@@ -49,10 +49,10 @@ jobs:
           #host: ${{ secrets.SERVER_HOST }}
           #username: ${{ secrets.SERVER_USER }}
           host: 100.111.65.26
-          username: taufi
+          username: taufiqr
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd C:\moodle
+            cd C:/moodle
 
             echo "Login GHCR"
             docker login ghcr.io -u taufiqr -p ${{ secrets.GHCR_TOKEN }}
