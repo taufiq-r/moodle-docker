@@ -103,34 +103,6 @@ if check_config "$MOODLE_CONFIG"; then
 
     echo "[$(date)] Generating config.php ($ENVIRONMENT)..."
 
-<<<<<<< HEAD
-=======
-    if [ -f "$MOODLE_DATABASE_PASSWORD_FILE" ]; then
-        DB_PASS="$(cat "$MOODLE_DATABASE_PASSWORD_FILE")"
-
-    elif [ -n "$MOODLE_DATABASE_PASSWORD" ]; then
-        DB_PASS="$MOODLE_DATABASE_PASSWORD"
-    
-    else
-        echo "[$(date)] WARNING: Using CI dummy database password"
-        DB_PASS="ci-test-password"
-    #else
-        #echo "[$(date)] ERROR: password file not found"
-        #exit 1
-    fi
-
-
-    if [ "$ENVIRONMENT" = "development" ]; then
-        SSL_PROXY="false"
-        DIR_PERMS="0777"
-        DEBUGCFG=1
-    else
-        SSL_PROXY="false"
-        DIR_PERMS="0770"
-        DEBUGCFG=0
-    fi
-
->>>>>>> origin/master
 cat > "$MOODLE_CONFIG" <<EOF
 <?php
 unset(\$CFG);
