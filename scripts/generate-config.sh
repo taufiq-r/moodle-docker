@@ -29,16 +29,12 @@ fi
 
 CONFIG_ROOT="$MOODLE_DIR/config.php"
 
-if [ -f "$CONFIG_ROOT" ]; then
-    echo "[$(date)] config.php already exists (installed Moodle), skipping generation"
-    exit 0
-fi
+SKIP_GENERATION=false
 
-CONFIG_ROOT="$MOODLE_DIR/config.php"
-
-if [ -f "$CONFIG_ROOT" ]; then
-    echo "config.php already exists, skipping generation"
-    exit 0
+# Skip only in production if config.php already exists
+if [ "$ENVIRONMENT" = "production" ] && [ -f "$CONFIG_ROOT" ]; then
+    echo "[$(date)] Production config.php detected, skipping generation"
+    SKIP_GENERATION=true
 fi
 
 check_config() {
@@ -61,33 +57,29 @@ check_config() {
 }
 
 # Generate config if needed
+if [ "$SKIP_GENERATION" = "false" ] && check_config "$MOODLE_CONFIG"; then
 
-if check_config "$MOODLE_CONFIG"; then
     echo "[$(date)] Generating config.php ($ENVIRONMENT)..."
 
+    # Database password handling
     if [ -f "$MOODLE_DATABASE_PASSWORD_FILE" ]; then
-        DB_PASS="$(cat "$MOODLE_DATABASE_PASSWORD_FILE")"
+        DB_PASS="$(cat "$MOODLE_DATABASE_PASSWORD_FILE)"
 
     elif [ -n "$MOODLE_DATABASE_PASSWORD" ]; then
         DB_PASS="$MOODLE_DATABASE_PASSWORD"
-    
+
     else
         echo "[$(date)] WARNING: Using CI dummy database password"
         DB_PASS="ci-test-password"
-    #else
-        #echo "[$(date)] ERROR: password file not found"
-        #exit 1
     fi
 
-
+    # Environment configuration
     if [ "$ENVIRONMENT" = "development" ]; then
         SSL_PROXY="false"
         DIR_PERMS="0777"
-        DEBUGCFG=1
     else
         SSL_PROXY="false"
         DIR_PERMS="0770"
-        DEBUGCFG=0
     fi
 
 cat > "$MOODLE_CONFIG" <<EOF
