@@ -27,11 +27,14 @@ fi
 
 CONFIG_ROOT="$MOODLE_DIR/config.php"
 
-# Skip only for production (prevent overwrite)
+GENERATE_CONFIG=true  
+
+# Production should not overwrite existing config
 if [ "$ENVIRONMENT" = "production" ] && [ -f "$CONFIG_ROOT" ]; then
     echo "[$(date)] config.php already exists, skipping generation"
-    exit 0
+    GENERATE_CONFIG=false   # [CHANGED]
 fi
+
 
 ###############################################
 # Check existing config compatibility
@@ -99,9 +102,13 @@ fi
 # Generate config if needed
 ###############################################
 
-if check_config "$MOODLE_CONFIG"; then
+echo "[$(date)] Generate flag: $GENERATE_CONFIG"
 
-    echo "[$(date)] Generating config.php ($ENVIRONMENT)..."
+if [ "$GENERATE_CONFIG" = true ]; then
+
+    if check_config "$MOODLE_CONFIG"; then
+
+        echo "[$(date)] Generating config.php ($ENVIRONMENT)..."
 
 cat > "$MOODLE_CONFIG" <<EOF
 <?php
@@ -136,23 +143,21 @@ if ('${ENVIRONMENT}' === 'development') {
 require_once(__DIR__ . '/../lib/setup.php');
 EOF
 
-    chmod 640 "$MOODLE_CONFIG"
-    chown www-data:www-data "$MOODLE_CONFIG"
+        chmod 640 "$MOODLE_CONFIG"
+        chown www-data:www-data "$MOODLE_CONFIG"
 
-    ###############################################
-    # Create symbolic links
-    ###############################################
+        rm -f "$MOODLE_PUBLIC/config.php"
+        ln -s "$(basename "$MOODLE_CONFIG")" "$MOODLE_PUBLIC/config.php"
 
-    rm -f "$MOODLE_PUBLIC/config.php"
-    ln -s "$(basename "$MOODLE_CONFIG")" "$MOODLE_PUBLIC/config.php"
+        rm -f "$MOODLE_DIR/config.php"
+        ln -s "public/$(basename "$MOODLE_CONFIG")" "$MOODLE_DIR/config.php"
 
-    rm -f "$MOODLE_DIR/config.php"
-    ln -s "public/$(basename "$MOODLE_CONFIG")" "$MOODLE_DIR/config.php"
+        echo "[$(date)] Config created: $MOODLE_CONFIG"
 
-    echo "[$(date)] Config created: $MOODLE_CONFIG"
+    else
+        echo "[$(date)] Config already valid, skipping generation"
+    fi
 
 else
-
-    echo "[$(date)] Config already valid, skipping generation"
-
+    echo "[$(date)] Generation disabled (production existing config)"
 fi
