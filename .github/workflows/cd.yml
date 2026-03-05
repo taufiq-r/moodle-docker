@@ -2,7 +2,7 @@ name: Release version
 
 on:
   push:
-    tags: 
+    tags:
       - "v*"
 
 env:
@@ -11,15 +11,13 @@ env:
 
 jobs:
   release:
-
     runs-on: ubuntu-latest
 
     permissions:
-        contents: read
-        packages: write
-    
+      contents: read
+      packages: write
+
     steps:
-      
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -29,29 +27,37 @@ jobs:
       - name: Build Production Image
         run: |
           docker build \
-          --target production \
-          -t $IMAGE_NAME:$VERSION \
-          -t $IMAGE_NAME:latest .
-      
+            --target production \
+            -t $IMAGE_NAME:$VERSION \
+            -t $IMAGE_NAME:latest .
+
       - name: Push image
         run: |
           docker push $IMAGE_NAME:$VERSION
           docker push $IMAGE_NAME:latest
 
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
+          host: 100.111.65.26
+          username: taufiqr
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /opt/moodle
-            
+            cd C:/moodle
+
+            echo "Login GHCR"
+            docker login ghcr.io -u taufiqr -p ${{ secrets.GHCR_TOKEN }}
+
             echo "Pull New Image"
-            docker compose pull
+            docker compose -f docker-compose.prod.yml pull
 
             echo "Restart Container"
-            docker compose up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
             echo "Cleanup Old Image"
             docker image prune -f
