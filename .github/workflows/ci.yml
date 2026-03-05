@@ -22,19 +22,13 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Docker image
-        run: |
-          docker run --rm --entrypoint php \
-          $IMAGE_NAME:ci-${{ github.sha }} .
+        run: docker build -t moodle:ci-${{ github.sha }} .
 
-      - name: Smoke test image
-        run: |
-          docker run --rm --entrypoint php \
-           $IMAGE_NAME:ci-${{ github.sha }} -v
+      - name: Smoke test PHP
+        run: docker run --rm --entrypoint php moodle:ci-${{ github.sha }} -v
 
       - name: Start test stack
-        run: |
-          docker compose -f docker-compose.dev.yml \ 
-          --env-file .env.ci up -d
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
 
       - name: Wait for container healthy
         run: |
@@ -72,11 +66,15 @@ jobs:
           docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp \
             test -f /var/www/html/config.php && echo "config.php OK" || exit 1
 
+      - name: Tag staging image
+        run: |
+          docker tag moodle:ci-${{ github.sha }} $IMAGE_NAME:staging
+          docker tag moodle:ci-${{ github.sha }} $IMAGE_NAME:ci-${{ github.sha }}
+
       - name: Push staging image
         run: |
-          docker tag $IMAGE_NAME:ci-${{ github.sha }} \
-                     $IMAGE_NAME:staging
           docker push $IMAGE_NAME:staging
+          docker push $IMAGE_NAME:ci-${{ github.sha }}
         
 
       - name: Show logs if failed
