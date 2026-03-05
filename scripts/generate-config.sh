@@ -34,6 +34,13 @@ if [ -f "$CONFIG_ROOT" ]; then
     exit 0
 fi
 
+CONFIG_ROOT="$MOODLE_DIR/config.php"
+
+if [ -f "$CONFIG_ROOT" ]; then
+    echo "config.php already exists, skipping generation"
+    exit 0
+fi
+
 check_config() {
     local config_file=$1
     [ ! -f "$config_file" ] && return 0
