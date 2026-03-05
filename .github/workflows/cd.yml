@@ -52,7 +52,7 @@ jobs:
           username: taufi
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /opt/moodle
+            cd C:\moodle
             
             echo "Pull New Image"
             docker compose pull
