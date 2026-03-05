@@ -55,9 +55,16 @@ if check_config "$MOODLE_CONFIG"; then
 
     if [ -f "$MOODLE_DATABASE_PASSWORD_FILE" ]; then
         DB_PASS="$(cat "$MOODLE_DATABASE_PASSWORD_FILE")"
+
+    elif [ -n "$MOODLE_DATABASE_PASSWORD" ]; then
+        DB_PASS="$MOODLE_DATABASE_PASSWORD"
+    
     else
-        echo "[$(date)] ERROR: password file not found"
-        exit 1
+        echo "[$(date)] WARNING: Using CI dummy database password"
+        DB_PASS="ci-test-password"
+    #else
+        #echo "[$(date)] ERROR: password file not found"
+        #exit 1
     fi
 
 

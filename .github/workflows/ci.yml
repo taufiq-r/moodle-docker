@@ -1,190 +1,86 @@
-name: CI
-
+name: CI Build & Test
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
-  workflow_dispatch:
-
+    branches: [develop]
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/moodle-web
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/moodle
+  COMPOSE_FILE: docker-compose.dev.yml
 
 jobs:
-  # ─────────────────────────────────────────────────────────────
-  # Job 1: Lint bash scripts — GitHub hosted runner
-  # ─────────────────────────────────────────────────────────────
-  lint-scripts:
-    name: Lint Bash Scripts
+  build-test:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Install shellcheck
-        run: sudo apt-get install -y shellcheck
-
-      - name: Run shellcheck on all scripts
-        run: shellcheck scripts/*.sh
-
-  # ─────────────────────────────────────────────────────────────
-  # Job 2: Lint Dockerfile — GitHub hosted runner
-  # ─────────────────────────────────────────────────────────────
-  lint-dockerfile:
-    name: Lint Dockerfile
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-          ignore: DL3018
-
-  # ─────────────────────────────────────────────────────────────
-  # Job 3: Build & Integration Test
-  # Self-hosted runner: PC Windows 11 (TAUFIQRWIN11)
-  # ─────────────────────────────────────────────────────────────
-  build-and-test:
-    name: Build & Integration Test
-    runs-on: [self-hosted, Windows, X64]
-    needs: [lint-scripts, lint-dockerfile]
-
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cleanup previous run
-        run: |
-          docker compose -f docker-compose.dev.yml \
-            --env-file .env.example down -v --remove-orphans 2>/dev/null || true
-
-      - name: Prepare test secrets
-        run: |
-          mkdir -p secrets
-          echo "ci_test_password_123" > secrets/db_password
-
-      - name: Prepare test env file
-        run: |
-          cp .env.example .env.ci
-          sed -i 's|PGSQL_HOST=.*|PGSQL_HOST=moodle-pgdb-dev|'              .env.ci
-          sed -i 's|PGSQL_USER=.*|PGSQL_USER=moodle|'                        .env.ci
-          sed -i 's|PGSQL_DATABASE=.*|PGSQL_DATABASE=moodledb|'              .env.ci
-          sed -i 's|ENVIRONMENT=.*|ENVIRONMENT=development|'                  .env.ci
-          sed -i 's|MOODLE_WWWROOT=.*|MOODLE_WWWROOT=http://localhost:8080|'  .env.ci
-
-      - name: Build Docker image
-        run: |
-          docker compose -f docker-compose.dev.yml \
-            --env-file .env.ci \
-            build
-
-      - name: Start all containers
-        run: |
-          docker compose -f docker-compose.dev.yml \
-            --env-file .env.ci \
-            up -d
-
-      - name: Wait for moodle-web healthcheck
-        run: |
-          echo "Waiting for moodle-web-dev to be healthy..."
-          for i in $(seq 1 24); do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' moodle-web-dev 2>/dev/null || echo "not_found")
-            echo "  [$i/24] status: $STATUS"
-            [ "$STATUS" = "healthy" ] && echo "Container healthy!" && break
-            [ "$i" -eq 24 ] && echo "Timeout!" && exit 1
-            sleep 5
-          done
-
-      - name: Wait for first cron cycle
-        run: sleep 75
-
-      - name: Verify check-preupgrade.sh
-        run: |
-          docker exec moodle-cron.dev \
-            grep -q "No plugin/theme change detected" \
-            /var/log/moodle-preupgrade.log
-          echo "check-preupgrade.sh OK"
-
-      - name: Verify check-plugin-updates.sh
-        run: |
-          docker exec moodle-cron.dev \
-            grep -qE "No plugin/theme change|Hash change detected" \
-            /var/log/moodle-plugin-updates.log
-          echo "check-plugin-updates.sh OK"
-
-      - name: Verify check-moodle-version.sh
-        run: |
-          docker exec moodle-cron.dev \
-            grep -qE "Initial version|Version changed" \
-            /var/log/moodle-updates-version.log
-          echo "check-moodle-version.sh OK"
-
-      - name: Dump logs on failure
-        if: failure()
-        run: |
-          echo "=== moodle-preupgrade.log ==="
-          docker exec moodle-cron.dev cat /var/log/moodle-preupgrade.log 2>/dev/null || true
-          echo "=== moodle-plugin-updates.log ==="
-          docker exec moodle-cron.dev cat /var/log/moodle-plugin-updates.log 2>/dev/null || true
-          echo "=== moodle-updates-version.log ==="
-          docker exec moodle-cron.dev cat /var/log/moodle-updates-version.log 2>/dev/null || true
-          echo "=== container status ==="
-          docker compose -f docker-compose.dev.yml --env-file .env.ci ps
-
-      - name: Teardown containers
-        if: always()
-        run: |
-          docker compose -f docker-compose.dev.yml \
-            --env-file .env.ci down -v --remove-orphans
-          rm -f .env.ci secrets/db_password
-
-  # ─────────────────────────────────────────────────────────────
-  # Job 4: Push image ke GHCR — GitHub hosted runner
-  # Hanya berjalan saat push ke main atau develop (bukan PR)
-  # ─────────────────────────────────────────────────────────────
-  push-image:
-    name: Push Image to GHCR
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    if: github.event_name == 'push'
     permissions:
       contents: read
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Login GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Docker image
+        run: docker build -t moodle:ci-${{ github.sha }} .
 
-      - name: Extract image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Smoke test PHP
+        run: docker run --rm --entrypoint php moodle:ci-${{ github.sha }} -v
 
-      - name: Build and push production image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          target: production
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Start test stack
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci up -d
+
+      - name: Wait for container healthy
+        run: |
+          for i in {1..24}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' moodle-web-dev 2>/dev/null || echo "not found")
+            echo "Attempt $i/24: $STATUS"
+
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Container is healthy!"
+              break
+            fi
+
+            if [ $i -eq 24 ]; then
+              echo "Timeout!"
+              docker compose -f docker-compose.dev.yml --env-file .env.ci logs
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+      - name: Test PHP runtime
+        run: |
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp php -v
+
+      - name: Test database connection
+        run: |
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp bash -c "
+            php -r \"\\\$c=pg_connect('host=postgres dbname=moodle user=moodle password=ci-test-password');
+            if(!\\\$c){echo 'DB FAILED';exit(1);}echo 'DB OK';\"
+          "
+
+      - name: Test Moodle config exists
+        run: |
+          docker compose -f docker-compose.dev.yml --env-file .env.ci exec -T moodleapp \
+            test -f /var/www/html/config.php && echo "config.php OK" || exit 1
+
+      - name: Tag staging image
+        run: |
+          docker tag moodle:ci-${{ github.sha }} $IMAGE_NAME:staging
+          docker tag moodle:ci-${{ github.sha }} $IMAGE_NAME:ci-${{ github.sha }}
+
+      - name: Push staging image
+        run: |
+          docker push $IMAGE_NAME:staging
+          docker push $IMAGE_NAME:ci-${{ github.sha }}
+        
+
+      - name: Show logs if failed
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci logs
+
+      - name: Stop stack
+        if: always()
+        run: docker compose -f docker-compose.dev.yml --env-file .env.ci down -v

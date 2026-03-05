@@ -10,10 +10,10 @@ services:
       - moodle-code:/var/www/html   #  named volume untuk windows environment
     depends_on:
        moodleapp:
-         condition: service_started
+         condition: service_healthy
     networks:
       - moodle-dev-network
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
@@ -33,40 +33,55 @@ services:
     volumes:
       - ./data/moodle_data-dev:/var/www/moodledata
       - moodle-code:/var/www/html   #  named volume untuk windows environment
-      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+      #- ./secrets/db_password.txt:/run/secrets/db_password:ro
     depends_on:
-      - postgres
-    restart: always
-    env_file: .env.dev
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    #env_file: .env.dev
     environment:
       ENVIRONMENT: development
       RESTORE_ON_EMPTY_DB: "false"
       PGSQL_HOST: ${PGSQL_HOST}
       PGSQL_USER: ${PGSQL_USER}
       PGSQL_DATABASE: ${PGSQL_DATABASE}
-      MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      PGSQL_PASSWORD: ${PGSQL_PASSWORD}
       MOODLE_WWWROOT: ${MOODLE_WWWROOT}
       DEBUG: 'true'
     networks:
       - moodle-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   postgres:
     image: postgres:17-alpine
     container_name: moodle-pgdb-dev
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${PGSQL_DATABASE}
       POSTGRES_USER: ${PGSQL_USER}
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_PASSWORD: ${PGSQL_PASSWORD}
+      #POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
-      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+      #- ./secrets/db_password.txt:/run/secrets/db_password:ro
     networks:
       - moodle-dev-network
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U ${PGSQL_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin-dev
+    profiles:
+    - dev
     ports:
       - "81:80"
     environment:
@@ -76,6 +91,7 @@ services:
       - postgres
     networks:
       - moodle-dev-network
+    restart: unless-stopped
 
   moodle-cron:
     image: moodle-web-dev
@@ -84,16 +100,17 @@ services:
     volumes:
       - ./data/moodle_data-dev:/var/www/moodledata
       - moodle-code:/var/www/html   #  named volume untuk windows environment
-      - ./secrets/db_password.txt:/run/secrets/db_password:ro
+      #- ./secrets/db_password.txt:/run/secrets/db_password:ro
     environment:
       ENVIRONMENT: development
       PGSQL_HOST: ${PGSQL_HOST}
       PGSQL_USER: ${PGSQL_USER}
       PGSQL_DATABASE: ${PGSQL_DATABASE}
-      MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      PGSQL_PASSWORD: ${PGSQL_PASSWORD}
+      #MOODLE_DATABASE_PASSWORD_FILE: /run/secrets/db_password
     networks:
       - moodle-dev-network
-    restart: always
+    restart: unless-stopped
 
 volumes:
   pgdata-dev:
