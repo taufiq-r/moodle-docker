@@ -6,3 +6,6 @@ secrets/
 moodledata/
 moodle/
 *.md
+src
+src/
+
