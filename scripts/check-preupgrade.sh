@@ -41,8 +41,17 @@ WATCH_DIRS=(
 )
 
 # --- Helper: run psql query (same pattern as check-plugin-updates.sh) ---
+# run_psql() {
+#     PGPASSWORD=$(cat "${MOODLE_DATABASE_PASSWORD_FILE}" 2>/dev/null) \
+#     psql -h "$PGSQL_HOST" \
+#          -U "$PGSQL_USER" \
+#          -d "$PGSQL_DATABASE" \
+#          -t -A \
+#          -c "$1" 2>/dev/null
+# }
+
 run_psql() {
-    PGPASSWORD=$(cat "${MOODLE_DATABASE_PASSWORD_FILE}" 2>/dev/null) \
+    PGPASSWORD="${PGSQL_PASSWORD}" \
     psql -h "$PGSQL_HOST" \
          -U "$PGSQL_USER" \
          -d "$PGSQL_DATABASE" \
@@ -148,7 +157,7 @@ if [ "$LAST_STATE" = "upgrading" ]; then
 
         if [ "$IS_PENDING" != "2" ]; then
             echo "$CURRENT_MTIME_HASH" > "$MTIME_HASH_FILE"
-            echo "idle" > "$STATE_FILE"
+            echo "idle"                > "$STATE_FILE"
             rm -f "$DB_HASH_FILE"
             echo "[$(date)] Upgrade completed. State → idle" >> "$LOG_FILE"
         else
