@@ -94,7 +94,7 @@ if [ ! -f "$MOODLE_DIR/config.php" ]; then
     echo "  💾 config.php akan otomatis di-backup ke moodledata"
     echo ""
 
-    # ✅ SAMA DENGAN PROD: Watcher di background
+    #  Watcher di background
     (
         echo "[DEV] 👀 Watching untuk config.php..."
         WATCH_RETRIES=600
@@ -146,7 +146,7 @@ fi
 
 # ============================================
 # Setup cron jobs
-# ✅ SAMA DENGAN PROD: hanya jika tidak ada argument
+# ✅ hanya jika tidak ada argument
 # ============================================
 if [ $# -eq 0 ]; then
     echo "[DEV] Setting up cron..."
@@ -157,7 +157,7 @@ echo "[DEV] ✅ Container siap!"
 echo "========================================"
 echo ""
 
-# ✅ SAMA DENGAN PROD: exec php-fpm atau custom command
+# ✅ exec php-fpm atau custom command
 if [ $# -eq 0 ]; then
     exec php-fpm
 else
