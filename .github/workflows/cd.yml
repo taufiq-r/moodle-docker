@@ -1,63 +1,159 @@
-name: Release version
+name: Deploy production
+
 
 on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to release (misal., v1.2.3)'
+        required: true
+        type: string
+      target_os:
+        description: 'Target operating system for deployment'
+        required: true
+        type: choice
+        options:
+          - windows
+          - linux
+        default: 'windows'
   push:
     tags:
       - "v*"
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/moodle
-  VERSION: ${{ github.ref_name }}
+  TARGET_OS: ${{ github.event_name == 'workflow_dispatch' && inputs.target_os || vars.DEPLOY_OS || 'windows' }}
 
 jobs:
-  release:
+  deploy:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-
     permissions:
-      contents: read
-      packages: write
+      contents: write
+      packages: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Login GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Build Production Image
+        with:
+          fetch-depth: 0
+      
+      - name: Get Target Tag
+        id: get_tag
         run: |
-          docker build \
-            --target production \
-            -t $IMAGE_NAME:$VERSION \
-            -t $IMAGE_NAME:latest .
-
-      - name: Push image
-        run: |
-          docker push $IMAGE_NAME:$VERSION
-          docker push $IMAGE_NAME:latest
-
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "TAG_NAME=${{ inputs.version  }}" >> $GITHUB_ENV
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            echo "TAG_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            git fetch --tags
+            LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+            echo "TAG_NAME=$LATEST_TAG" >> $GITHUB_ENV
+          fi
+      - name: Create github release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          generate_release_notes: true
+      
       - name: Connect Tailscale
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: Deploy to server
+      - name: Deploy to Windows
+        if: env.TARGET_OS == 'windows'
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 100.111.65.26
-          username: taufiqr
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd C:/moodle
+            cd ${{ secrets.MOODLE_DIR }}
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            echo "Login GHCR"
-            docker login ghcr.io -u taufiqr -p ${{ secrets.GHCR_TOKEN }}
+            #Update versi Moodle di .env
+            echo MOODLE_VERSION=${{ env.TAG_NAME }} > .env
 
-            echo "Pull New Image"
             docker compose -f docker-compose.prod.yml pull
-
-            echo "Restart Container"
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
-
-            echo "Cleanup Old Image"
             docker image prune -f
+
+      # =================================================================
+      #  DEPLOYMENT KE LINUX SERVER (NON-AKTIF)
+      # Jika ingin pindah ke Linux, beri komentar (#) pada blok Windows
+      # di atas, dan hapus komentar (#) pada blok Linux di bawah ini:
+      # =================================================================
+      # - name: Deploy to Linux Server
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.SERVER_HOST }}
+      #     username: ${{ secrets.SERVER_USER }}
+      #     key: ${{ secrets.SERVER_SSH_KEY }}
+      #     script: |
+            # cd ${{ secrets.MOODLE_DIR }}
+      #       echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      #       
+      #       # Update versi Moodle di .env (Format Bash Linux)
+      #       echo "MOODLE_VERSION=${{ env.TAG_NAME }}" > .env
+      #       
+      #       docker compose -f docker-compose.prod.yml pull
+      #       docker compose -f docker-compose.prod.yml up -d --remove-orphans
+      #       docker image prune -f
+
+      # NOTIFIKASI DISCORD SUCCESS
+      - name: Send Notification to Discord - Success
+        if: success() && env.DISCORD_WEBHOOK_URL !=''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          cat > /tmp/discord_payload.json << 'EOFPAYLOAD'
+          {
+            "embeds": [{
+              "title": "✅ Moodle Production Release Success!",
+              "description": "**Repository:** REPO_PLACEHOLDER\n**Version Deployed:** TAG_PLACEHOLDER\n**Triggered By:** @${{ github.actor }}\n**Workflow:** [Deploy production](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+              "color": 3066993,
+              "timestamp": "TS_PLACEHOLDER"
+            }]
+          }
+          EOFPAYLOAD
+          sed -i \
+            -e "s|REPO_PLACEHOLDER|${{ github.repository }}|g" \
+            -e "s|TAG_PLACEHOLDER|${{ env.TAG_NAME }}|g" \
+            -e "s|TS_PLACEHOLDER|${TS}|g" \
+            /tmp/discord_payload.json
+          curl -fsS -H "Content-Type: application/json" -d @/tmp/discord_payload.json "$DISCORD_WEBHOOK_URL"
+
+      # NOTIFIKASI DISCORD - FAILED
+      - name: Send Discord notification - Failed
+        if: failure() && env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          cat > /tmp/discord_payload.json << 'EOFPAYLOAD'
+          {
+            "embeds": [{
+              "title": "❌ Moodle Production Release FAILED!",
+              "description": "**Repository:** REPO_PLACEHOLDER\n**Version:** TAG_PLACEHOLDER\n**Triggered By:** @${{ github.actor }}\n**Workflow:** [Deploy production](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+              "color": 15158332,
+              "timestamp": "TS_PLACEHOLDER"
+            }]
+          }
+          EOFPAYLOAD
+          sed -i \
+            -e "s|REPO_PLACEHOLDER|${{ github.repository }}|g" \
+            -e "s|TAG_PLACEHOLDER|${{ env.TAG_NAME }}|g" \
+            -e "s|TS_PLACEHOLDER|${TS}|g" \
+            /tmp/discord_payload.json
+          curl -fsS -H "Content-Type: application/json" -d @/tmp/discord_payload.json "$DISCORD_WEBHOOK_URL"
