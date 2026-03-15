@@ -79,7 +79,7 @@ jobs:
             cd ${{ secrets.MOODLE_DIR }}
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            #Update versi Moodle di .env
+            # Update versi Moodle di .env
             echo MOODLE_VERSION=${{ env.TAG_NAME }} > .env
 
             docker compose -f docker-compose.prod.yml pull
