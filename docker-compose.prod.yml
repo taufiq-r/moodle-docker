@@ -21,13 +21,7 @@ services:
       start_period: 10s
 
   moodleapp:
-    # image: ghcr.io/${GITHUB_OWNER}/moodle:${MOODLE_IMAGE_TAG:-latest}
-    # container_name: moodle-web-prod
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    image: moodle-web-prod
+    image: ${MOODLE_IMAGE:-ghcr.io/${GITHUB_OWNER}/moodle}:${MOODLE_VERSION:-latest}
     container_name: moodle-web-prod
     restart: always
     depends_on:
@@ -85,13 +79,7 @@ services:
       start_period: 30s
 
   moodle-cron:
-    # image: ghcr.io/${GITHUB_OWNER}/moodle:${MOODLE_IMAGE_TAG:-latest}
-    # container_name: moodle-cron-prod
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    image: moodle-web-prod
+    image: ${MOODLE_IMAGE:-ghcr.io/${GITHUB_OWNER}/moodle}:${MOODLE_VERSION:-latest}
     container_name: moodle-cron-prod
     restart: always
     depends_on:

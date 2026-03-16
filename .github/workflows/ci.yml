@@ -2,6 +2,10 @@ name: CI Pipeline
 on:
   push:
     branches: [develop]
+    tags:
+      - "v*"
+  pull_request:
+    branches: [master]
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/moodle
 
@@ -44,10 +48,17 @@ jobs:
       - name: Determine Docker Tag
         id: set_env
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
-             echo "TAG=${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" == "refs/heads/master" ]; then
+            TAG_VALUE="${{ steps.tag_version.outputs.new_tag }}"
+            if [ -z "$TAG_VALUE" ]; then
+              echo "TAG_VALUE is empty on master branch" >&2
+              exit 1
+            fi
+            echo "TAG=$TAG_VALUE" >> $GITHUB_ENV
           else
-             echo "TAG=staging-${{ github.sha }}" >> $GITHUB_ENV
+            echo "TAG=staging-${{ github.sha }}" >> $GITHUB_ENV
           fi
 
       - name: Set up Docker Buildx
