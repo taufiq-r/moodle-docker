@@ -153,10 +153,10 @@ jobs:
             }]
           }
           EOFPAYLOAD
-          sed -i "s/BRANCH_PLACEHOLDER/${{ github.ref_name }}/g" /tmp/discord_payload.json
-          sed -i "s/TAG_PLACEHOLDER/${{ env.TAG }}/g"            /tmp/discord_payload.json
-          sed -i "s/SHORT_SHA_PLACEHOLDER/${SHORT_SHA}/g"        /tmp/discord_payload.json
-          sed -i "s/TS_PLACEHOLDER/${TS}/g"                      /tmp/discord_payload.json
+          sed -i "s|BRANCH_PLACEHOLDER|${{ github.ref_name }}|g" /tmp/discord_payload.json
+          sed -i "s|TAG_PLACEHOLDER|${{ env.TAG }}|g"            /tmp/discord_payload.json
+          sed -i "s|SHORT_SHA_PLACEHOLDER|${SHORT_SHA}|g"        /tmp/discord_payload.json
+          sed -i "s|TS_PLACEHOLDER|${TS}|g"                      /tmp/discord_payload.json
           curl -fsS -H "Content-Type: application/json" -d @/tmp/discord_payload.json "$DISCORD_WEBHOOK_URL"
 
       # NOTIFIKASI DISCORD - FAILED
@@ -178,7 +178,7 @@ jobs:
             }]
           }
           EOFPAYLOAD
-          sed -i "s/BRANCH_PLACEHOLDER/${{ github.ref_name }}/g" /tmp/discord_payload.json
-          sed -i "s/SHORT_SHA_PLACEHOLDER/${SHORT_SHA}/g"        /tmp/discord_payload.json
-          sed -i "s/TS_PLACEHOLDER/${TS}/g"                      /tmp/discord_payload.json
+          sed -i "s|BRANCH_PLACEHOLDER|${{ github.ref_name }}|g" /tmp/discord_payload.json
+          sed -i "s|SHORT_SHA_PLACEHOLDER|${SHORT_SHA}|g"        /tmp/discord_payload.json
+          sed -i "s|TS_PLACEHOLDER|${TS}|g"                      /tmp/discord_payload.json
           curl -fsS -H "Content-Type: application/json" -d @/tmp/discord_payload.json "$DISCORD_WEBHOOK_URL"
