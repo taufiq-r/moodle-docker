@@ -136,7 +136,7 @@ jobs:
 
         # NOTIFIKASI DISCORD SUCCESS
       - name: Send Notification to Discord - Success
-        if: success() && env.DISCORD_WEBHOOK_URL !=''
+        if: success() && github.event_name == 'push' && env.DISCORD_WEBHOOK_URL != ''
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
@@ -161,7 +161,7 @@ jobs:
 
       # NOTIFIKASI DISCORD - FAILED
       - name: Send Discord notification - Failed
-        if: failure() && env.DISCORD_WEBHOOK_URL != ''
+        if: failure() && github.event_name == 'push' && env.DISCORD_WEBHOOK_URL != ''
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
